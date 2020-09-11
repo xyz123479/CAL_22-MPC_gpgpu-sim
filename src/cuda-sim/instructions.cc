@@ -532,8 +532,8 @@ void ptx_thread_info::get_vector_operand_values(const operand_info &op,
     sym = op.vec_symbol(idx);
     if (strcmp(sym->name().c_str(), "_") != 0) {
       reg_map_t::iterator reg_iter = m_regs.back().find(sym);
-      assert(reg_iter != m_regs.back().end());
-      ptx_regs[idx] = reg_iter->second;
+      if(reg_iter != m_regs.back().end())	// Added by jin
+        ptx_regs[idx] = reg_iter->second;
     }
   }
 }

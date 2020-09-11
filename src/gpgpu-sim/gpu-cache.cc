@@ -1019,6 +1019,7 @@ void baseline_cache::cycle() {
     mem_fetch *mf = m_miss_queue.front();
     if (!m_memport->full(mf->size(), mf->get_is_write())) {
       m_miss_queue.pop_front();
+      //mf->print_data(1);
       m_memport->push(mf);
     }
   }
@@ -1054,8 +1055,16 @@ void baseline_cache::fill(mem_fetch *mf, unsigned time) {
   assert(e->second.m_valid);
   mf->set_data_size(e->second.m_data_size);
   mf->set_addr(e->second.m_addr);
-  if (m_config.m_alloc_policy == ON_MISS)
+
+    cache_block_t *block =
+      m_tag_array->get_block(e->second.m_cache_index);  // song
+  if (m_config.m_alloc_policy == ON_MISS) {
     m_tag_array->fill(e->second.m_cache_index, time, mf);
+    block->set_data(e->second.m_cache_index, mf->get_access_sector_mask(),
+                    mf->data, mf->get_data_size());  // song
+    block->set_id(e->second.m_cache_index, mf->get_access_sector_mask(),
+                  mf);  // song
+  }
   else if (m_config.m_alloc_policy == ON_FILL) {
     m_tag_array->fill(e->second.m_block_addr, time, mf);
     if (m_config.is_streaming()) m_tag_array->remove_pending_line(mf);
@@ -1069,6 +1078,10 @@ void baseline_cache::fill(mem_fetch *mf, unsigned time) {
     block->set_status(MODIFIED,
                       mf->get_access_sector_mask());  // mark line as dirty for
                                                       // atomic operation
+    block->set_data(e->second.m_cache_index, mf->get_access_sector_mask(),
+                    mf->data, mf->get_data_size());  // song
+    block->set_id(e->second.m_cache_index, mf->get_access_sector_mask(),
+                  mf);  // song
   }
   m_extra_mf_fields.erase(mf);
   m_bandwidth_management.use_fill_port(mf);
@@ -1173,6 +1186,9 @@ cache_request_status data_cache::wr_hit_wb(new_addr_type addr,
   new_addr_type block_addr = m_config.block_addr(addr);
   m_tag_array->access(block_addr, time, cache_index, mf);  // update LRU state
   cache_block_t *block = m_tag_array->get_block(cache_index);
+  block->set_data(cache_index, mf->get_access_sector_mask(), mf->data,
+                  mf->get_data_size());
+  block->set_id(cache_index, mf->get_access_sector_mask(), mf);  // song
   block->set_status(MODIFIED, mf->get_access_sector_mask());
 
   return HIT;
@@ -1456,6 +1472,17 @@ enum cache_request_status data_cache::wr_miss_wa_lazy_fetch_on_read(
   assert(m_status != HIT);
   cache_block_t *block = m_tag_array->get_block(cache_index);
   block->set_status(MODIFIED, mf->get_access_sector_mask());
+  memcpy(evicted.m_data, block->m_data, 128);
+  memcpy(evicted.m_tpc, block->m_tpc, 4 * 4);
+  memcpy(evicted.m_sid, block->m_sid, 4 * 4);
+  memcpy(evicted.m_wid, block->m_wid, 4 * 4);  // song
+  memcpy(evicted.m_inst_count, block->m_inst_count, 4 * 4);
+
+  	block->clear_data(cache_index);
+  block->set_data(cache_index, mf->get_access_sector_mask(), mf->data,
+                  mf->get_data_size());
+  block->set_id(cache_index, mf->get_access_sector_mask(), mf);  // song
+
   if (m_status == HIT_RESERVED) {
     block->set_ignore_on_fill(true, mf->get_access_sector_mask());
     block->set_modified_on_fill(true, mf->get_access_sector_mask());
@@ -1474,6 +1501,19 @@ enum cache_request_status data_cache::wr_miss_wa_lazy_fetch_on_read(
       mem_fetch *wb = m_memfetch_creator->alloc(
           evicted.m_block_addr, m_wrbk_type, evicted.m_modified_size, true,
           m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
+
+      memcpy(wb->data, evicted.m_data, 128);
+      memcpy(wb->mm_wid, evicted.m_wid, 4*4);
+      memcpy(wb->mm_sid, evicted.m_sid, 4*4);
+      memcpy(wb->mm_tpc, evicted.m_tpc, 4*4);
+      memcpy(wb->m_inst_count, evicted.m_inst_count, 4*4);
+      /*
+      wb->m_wid = evicted.m_wid[0];
+      wb->m_sid = evicted.m_sid[0];
+      wb->m_tpc = evicted.m_tpc[0];
+      wb->m_inst_count = evicted.m_inst_count[0];	
+      wb->print_line(evicted.m_tpc, evicted.m_sid, evicted.m_wid, //song
+                     evicted.m_inst_count);*/
       // the evicted block may have wrong chip id when advanced L2 hashing  is
       // used, so set the right chip address from the original mf
       wb->set_chip(mf->get_tlx_addr().chip);
@@ -1516,6 +1556,9 @@ enum cache_request_status data_cache::rd_hit_base(
   if (mf->isatomic()) {
     assert(mf->get_access_type() == GLOBAL_ACC_R);
     cache_block_t *block = m_tag_array->get_block(cache_index);
+    block->set_data(cache_index, mf->get_access_sector_mask(), mf->data,
+                    mf->get_data_size());
+    block->set_id(cache_index, mf->get_access_sector_mask(), mf);  // song
     block->set_status(MODIFIED,
                       mf->get_access_sector_mask());  // mark line as dirty
   }
@@ -1543,6 +1586,14 @@ enum cache_request_status data_cache::rd_miss_base(
   send_read_request(addr, block_addr, cache_index, mf, time, do_miss, wb,
                     evicted, events, false, false);
 
+  cache_block_t *block = m_tag_array->get_block(cache_index);
+  memcpy(evicted.m_data, block->m_data, 128);
+  memcpy(evicted.m_tpc, block->m_tpc, sizeof(int) * 4);
+  memcpy(evicted.m_sid, block->m_sid, sizeof(int) * 4);
+  memcpy(evicted.m_wid, block->m_wid, sizeof(int) * 4);  // song
+  memcpy(evicted.m_inst_count, block->m_inst_count, 4 * 4);
+  block->clear_data(cache_index);
+
   if (do_miss) {
     // If evicted block is modified and not a write-through
     // (already modified lower level)
@@ -1552,6 +1603,20 @@ enum cache_request_status data_cache::rd_miss_base(
           m_gpu->gpu_tot_sim_cycle + m_gpu->gpu_sim_cycle);
       // the evicted block may have wrong chip id when advanced L2 hashing  is
       // used, so set the right chip address from the original mf
+      memcpy(wb->data, evicted.m_data,
+             128);  // song
+      memcpy(wb->data, evicted.m_data, SECTOR_SIZE * SECTOR_CHUNCK_SIZE);
+      memcpy(wb->mm_wid, evicted.m_wid, 4*4);
+      memcpy(wb->mm_sid, evicted.m_sid, 4*4);
+      memcpy(wb->mm_tpc, evicted.m_tpc, 4*4);
+      memcpy(wb->m_inst_count, evicted.m_inst_count, 4*4);
+      /*wb->m_wid = evicted.m_wid[0];
+      wb->m_sid = evicted.m_sid[0];
+      wb->m_tpc = evicted.m_tpc[0];
+      wb->m_inst_count = evicted.m_inst_count[0];
+      wb->print_line(evicted.m_tpc, evicted.m_sid, evicted.m_wid,
+                     evicted.m_inst_count);
+*/
       wb->set_chip(mf->get_tlx_addr().chip);
       wb->set_parition(mf->get_tlx_addr().sub_partition);
       send_write_request(wb, WRITE_BACK_REQUEST_SENT, time, events);
@@ -1740,6 +1805,7 @@ void tex_cache::cycle() {
     if (!m_memport->full(mf->get_ctrl_size(), false)) {
       m_request_fifo.pop();
       m_memport->push(mf);
+
     }
   }
   // read ready lines from cache

@@ -47,6 +47,10 @@
 #include "stat-tool.h"
 #include "traffic_breakdown.h"
 #include "visualizer.h"
+#include <queue>
+#include <set>
+#include "../abstract_hardware_model.h"
+#include "../cuda-sim/memory.h"
 
 #define PRIORITIZE_MSHR_OVER_WB 1
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -855,6 +859,7 @@ void shader_core_ctx::decode() {
     const warp_inst_t *pI1 = get_next_inst(m_inst_fetch_buffer.m_warp_id, pc);
     m_warp[m_inst_fetch_buffer.m_warp_id]->ibuffer_fill(0, pI1);
     m_warp[m_inst_fetch_buffer.m_warp_id]->inc_inst_in_pipeline();
+    m_warp[m_inst_fetch_buffer.m_warp_id]->m_inst_count++;  // song
     if (pI1) {
       m_stats->m_num_decoded_insn[m_sid]++;
       if (pI1->oprnd_type == INT_OP) {
@@ -1025,6 +1030,7 @@ void shader_core_ctx::issue_warp(register_set &pipe_reg_set,
 void shader_core_ctx::issue() {
   // Ensure fair round robin issu between schedulers
   unsigned j;
+  //printf("issue !!!\n");
   for (unsigned i = 0; i < schedulers.size(); i++) {
     j = (Issue_Prio + i) % schedulers.size();
     schedulers[j]->cycle();
@@ -4289,6 +4295,8 @@ void simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
   // - For write request and atomic request, the packet contains the data
   // - For read request (i.e. not write nor atomic), the packet only has control
   // metadata
+
+  //printf("inject is here!!!\n");
   unsigned int packet_size = mf->size();
   if (!mf->get_is_write() && !mf->isatomic()) {
     packet_size = mf->get_ctrl_size();
@@ -4297,6 +4305,21 @@ void simt_core_cluster::icnt_inject_request_packet(class mem_fetch *mf) {
   unsigned destination = mf->get_sub_partition_id();
   mf->set_status(IN_ICNT_TO_MEM,
                  m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+
+
+  unsigned char buffer[128];
+
+  unsigned core_local_id =
+      mf->get_sid() % m_config->n_simt_cores_per_cluster;  // song
+  shader_core_ctx *core = m_core[core_local_id];
+
+  core->get_gpu()->get_global_memory()->read(mf->get_addr(), mf->get_data_size(), buffer);
+  mf->write_data(buffer);//song
+  // core->m_warp[mf->get_wid()];
+
+  mf->set_inst_count(core->m_warp[mf->get_wid()]->m_inst_count);  // song
+
+  //printf("memory inject\n");
   if (!mf->get_is_write() && !mf->isatomic())
     ::icnt_push(m_cluster_id, m_config->mem2device(destination), (void *)mf,
                 mf->get_ctrl_size());

@@ -44,36 +44,47 @@
 enum cache_block_state { INVALID = 0, RESERVED, VALID, MODIFIED };
 
 enum cache_request_status {
-  HIT = 0,
-  HIT_RESERVED,
-  MISS,
-  RESERVATION_FAIL,
-  SECTOR_MISS,
-  NUM_CACHE_REQUEST_STATUS
+	HIT = 0,
+	HIT_RESERVED,
+	MISS,
+	RESERVATION_FAIL,
+	SECTOR_MISS,
+	NUM_CACHE_REQUEST_STATUS
 };
 
 enum cache_reservation_fail_reason {
-  LINE_ALLOC_FAIL = 0,  // all line are reserved
-  MISS_QUEUE_FULL,      // MISS queue (i.e. interconnect or DRAM) is full
-  MSHR_ENRTY_FAIL,
-  MSHR_MERGE_ENRTY_FAIL,
-  MSHR_RW_PENDING,
-  NUM_CACHE_RESERVATION_FAIL_STATUS
+	LINE_ALLOC_FAIL = 0,  // all line are reserved
+	MISS_QUEUE_FULL,      // MISS queue (i.e. interconnect or DRAM) is full
+	MSHR_ENRTY_FAIL,
+	MSHR_MERGE_ENRTY_FAIL,
+	MSHR_RW_PENDING,
+	NUM_CACHE_RESERVATION_FAIL_STATUS
 };
 
 enum cache_event_type {
-  WRITE_BACK_REQUEST_SENT,
-  READ_REQUEST_SENT,
-  WRITE_REQUEST_SENT,
-  WRITE_ALLOCATE_SENT
+	WRITE_BACK_REQUEST_SENT,
+	READ_REQUEST_SENT,
+	WRITE_REQUEST_SENT,
+	WRITE_ALLOCATE_SENT
 };
 
 struct evicted_block_info {
-  new_addr_type m_block_addr;
-  unsigned m_modified_size;
-  evicted_block_info() {
-    m_block_addr = 0;
-    m_modified_size = 0;
+	new_addr_type m_block_addr;
+	unsigned m_modified_size;
+	unsigned char m_data[128];
+	unsigned m_tpc[4];
+	unsigned m_sid[4];
+	unsigned m_wid[4];
+	unsigned m_inst_count[4];
+	evicted_block_info() {
+		m_block_addr = 0;
+		m_modified_size = 0;
+		for (int i = 0; i < 4; i++) {
+			m_tpc[i] = -1;
+      m_sid[i] = -1;
+      m_wid[i] = -1;
+      m_inst_count[i] = -1;
+    }  // song
   }
   void set_info(new_addr_type block_addr, unsigned modified_size) {
     m_block_addr = block_addr;
@@ -120,6 +131,14 @@ struct cache_block_t {
   virtual void set_status(enum cache_block_state m_status,
                           mem_access_sector_mask_t sector_mask) = 0;
 
+   virtual void clear_data(unsigned cache_index) = 0;
+  virtual void set_data(unsigned cache_index,
+                        mem_access_sector_mask_t sector_mask,
+                        unsigned char *input_data,
+                        unsigned data_size) = 0;  // song
+  virtual void set_id(unsigned cache_index,
+                      mem_access_sector_mask_t sector_mask, mem_fetch *mf) = 0;
+
   virtual unsigned long long get_last_access_time() = 0;
   virtual void set_last_access_time(unsigned long long time,
                                     mem_access_sector_mask_t sector_mask) = 0;
@@ -137,6 +156,13 @@ struct cache_block_t {
 
   new_addr_type m_tag;
   new_addr_type m_block_addr;
+
+ public:
+  unsigned char m_data[128];  // song
+  unsigned m_tpc[4];
+  unsigned m_sid[4];
+  unsigned m_wid[4];
+  unsigned m_inst_count[4];
 };
 
 struct line_cache_block : public cache_block_t {
@@ -181,6 +207,22 @@ struct line_cache_block : public cache_block_t {
                           mem_access_sector_mask_t sector_mask) {
     m_status = status;
   }
+  virtual void clear_data(unsigned cache_index) { memset(m_data, 0, 128); }
+  virtual void set_data(unsigned cache_index,
+                        mem_access_sector_mask_t sector_mask,
+                        unsigned char *input_data, unsigned data_size)  // song
+  {
+    memcpy(m_data, input_data, 128);
+  }
+  virtual void set_id(unsigned cache_index,
+                      mem_access_sector_mask_t sector_mask, mem_fetch *mf) {
+    for (int i = 0; i < 4; i++) {
+      m_tpc[i] = mf->get_tpc();
+      m_sid[i] = mf->get_sid();
+      m_wid[i] = mf->get_wid();
+      m_inst_count[i] = mf->m_inst_count[0];
+    }
+  }  // song
   virtual unsigned long long get_last_access_time() {
     return m_last_access_time;
   }
@@ -338,6 +380,37 @@ struct sector_cache_block : public cache_block_t {
                           mem_access_sector_mask_t sector_mask) {
     unsigned sidx = get_sector_index(sector_mask);
     m_status[sidx] = status;
+  }
+
+  virtual void clear_data(unsigned cache_index) {
+    memset(m_data, -2, 128);
+    for (int i = 0; i < 4; i++) {
+      m_tpc[i] = -1;
+      m_sid[i] = -1;
+      m_wid[i] = -1;
+      m_inst_count[i] = -1;
+    }
+  }
+  virtual void set_data(unsigned cache_index,
+                        mem_access_sector_mask_t sector_mask,
+                        unsigned char *input_data, unsigned data_size)  // song
+  {
+    unsigned sidx = get_sector_index(sector_mask);
+    // printf("memcpy to cache_index %d sector_index %d data_size %d
+    // \n",cache_index, sidx,data_size);
+   // printf("set_data, sidx %d ,data size %d\n",sidx,data_size);
+    memcpy(m_data + sidx * SECTOR_SIZE, input_data, data_size);
+  }
+  virtual void set_id(unsigned cache_index,
+                      mem_access_sector_mask_t sector_mask,
+                      mem_fetch *mf)  // song
+  {
+    unsigned sidx = get_sector_index(sector_mask);
+   // printf("set_id, sidx %d , data size %d\n", sidx, mf->get_data_size());
+    m_tpc[sidx] = mf->get_tpc();
+    m_sid[sidx] = mf->get_sid();
+    m_wid[sidx] = mf->get_wid();
+    m_inst_count[sidx] = mf->m_inst_count[0];
   }
 
   virtual unsigned long long get_last_access_time() {

@@ -31,6 +31,16 @@
 #include "mem_latency_stat.h"
 #include "shader.h"
 #include "visualizer.h"
+#include "gpu-sim.h"
+#include <stdio.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <queue>
+#include <set>
+#include "../abstract_hardware_model.h"
+#include "../cuda-sim/memory.h"
+
+extern gpgpu_context *ctx;
 
 unsigned mem_fetch::sm_next_mf_request_uid = 1;
 
@@ -53,6 +63,7 @@ mem_fetch::mem_fetch(const mem_access_t &access, const warp_inst_t *inst,
   m_sid = sid;
   m_tpc = tpc;
   m_wid = wid;
+
   config->m_address_mapping.addrdec_tlx(access.get_addr(), &m_raw_addr);
   m_partition_addr =
       config->m_address_mapping.partition_address(access.get_addr());
@@ -65,6 +76,7 @@ mem_fetch::mem_fetch(const mem_access_t &access, const warp_inst_t *inst,
   icnt_flit_size = config->icnt_flit_size;
   original_mf = m_original_mf;
   original_wr_mf = m_original_wr_mf;
+  m_inst_count[0] = 0; //song
   if (m_original_mf) {
     m_raw_addr.chip = m_original_mf->get_tlx_addr().chip;
     m_raw_addr.sub_partition = m_original_mf->get_tlx_addr().sub_partition;
@@ -101,6 +113,99 @@ void mem_fetch::print(FILE *fp, bool print_inst) const {
     fprintf(fp, "\n");
 }
 
+void mem_fetch::write_data(unsigned char *input_data) {
+  memcpy(data, input_data , get_data_size());
+}
+
+// Added by song
+void mem_fetch::print_data(int type) const {
+  unsigned char buffer[128];
+  if (get_type() == 0) {
+     printf("REQ,");
+
+    if (type == 0) printf("DRAM,");
+    else if (type == 1) printf("RAM,");
+
+    printf("READ,");
+    printf("%llu,", m_status_change);
+    printf("%02d,", get_tpc());
+    printf("%02d,", get_sid());
+    printf("%02d,", get_wid());
+    printf("0x%08x,", get_pc());
+    printf("%d,", m_inst_count[0]);
+    printf("0x%08llx,", get_addr());
+    printf("%d,", get_data_size());
+    printf("%d,", get_access_type());
+    printf("RAW,0x%03x,%03d,%03d,0x%03x,",
+            m_raw_addr.row, m_raw_addr.chip, m_raw_addr.bk, m_raw_addr.col);
+    for (int i = 0; i < get_data_size(); i++) printf("%02x,", data[i]);
+    printf("\n");
+  }
+  else {
+    for (int j = 0; j < 4; j++) {
+
+      if (mm_tpc[j] == -1 || mm_sid[j] == -1 || mm_wid[j] == -1) continue;
+
+      printf("REQ,");
+      if (type == 0) printf("DRAM,");
+      else if (type == 1) printf("RAM,");
+      
+      printf("WRITE,");
+      printf("%llu,", m_status_change);
+      printf("%02d,", mm_tpc[j]);
+      printf("%02d,", mm_sid[j]);
+      printf("%02d,", mm_wid[j]);
+      printf("0x%08x,", get_pc());
+      printf("%d,", m_inst_count[j]);
+      printf("0x%08llx,", get_addr() + j * 32);
+      printf("%d,", 32);
+      printf("%d,", get_access_type());
+      printf("RAW,0x%03x,%03d,%03d,0x%03x,", m_raw_addr.row,
+              m_raw_addr.chip, m_raw_addr.bk, m_raw_addr.col);
+      for (int i = 32*j; i < 32*j+32 ; i++) printf("%02x,", data[i]);
+      printf("\n");
+    }
+  }
+  return;
+}
+
+// Added by song
+void mem_fetch::print_line(unsigned dqbytes) const {
+  printf("IN,");
+  printf("DRAM,");
+
+  if (get_type() == 0) {
+    printf("READ,");
+    printf("%llu,", m_status_change);
+    printf("%02d,", get_tpc());
+    printf("%02d,", get_sid());
+    printf("%02d,", get_wid());
+    printf("0x%08x,", get_pc());
+    printf("%d,", m_inst_count[0]);
+    printf("0x%08llx,", get_addr());
+    printf("%d,", get_data_size());
+    printf("%d,", get_access_type());
+    for (int i = 0; i < get_data_size(); i++) printf("%02x,", data[i]);
+    printf("\n");
+  }
+  else {
+
+    if (mm_tpc[dqbytes/32] == -1 || mm_sid[dqbytes/32] == -1 || mm_wid[dqbytes/32] == -1) return;
+
+    printf("WRITE,");
+    printf("%llu,", m_status_change);
+    printf("%02d,", mm_tpc[dqbytes/32]);
+    printf("%02d,", mm_sid[dqbytes/32]);
+    printf("%02d,", mm_wid[dqbytes/32]);
+    printf("0x%08x,", get_pc());
+    printf("%d,", m_inst_count[dqbytes/32]);
+    printf("0x%08llx,", get_addr() + dqbytes);
+    printf("%d,", 32);
+    printf("%d,", get_access_type());
+    for (int i = dqbytes; i < dqbytes + 32; i++) printf("%02x,", data[i]);
+    printf("\n");
+  }
+}
 void mem_fetch::set_status(enum mem_fetch_status status,
                            unsigned long long cycle) {
   m_status = status;

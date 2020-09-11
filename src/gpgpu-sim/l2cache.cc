@@ -342,6 +342,7 @@ void memory_partition_unit::dram_cycle() {
       m_dram_latency_queue.push_back(d);
       mf->set_status(IN_PARTITION_DRAM_LATENCY_QUEUE,
                      m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+      //mf->print_data(0); //song
       m_arbitration_metadata.borrow_credit(spid);
       break;  // the DRAM should only accept one request per cycle
     }
@@ -354,6 +355,9 @@ void memory_partition_unit::dram_cycle() {
        m_dram_latency_queue.front().ready_cycle) &&
       !m_dram->full(m_dram_latency_queue.front().req->is_write())) {
     mem_fetch *mf = m_dram_latency_queue.front().req;
+    
+    mf->set_status(IN_PARTITION_DRAM_LATENCY_QUEUE, m_gpu->gpu_sim_cycle+m_gpu->gpu_tot_sim_cycle);
+    //mf->print_data(1); //song
     m_dram_latency_queue.pop_front();
     m_dram->push(mf);
   }

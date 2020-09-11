@@ -288,6 +288,9 @@ void dram_t::cycle() {
   if (!returnq->full()) {
     dram_req_t *cmd = rwq->pop();
     if (cmd) {
+
+     //printf("cmd->dqbytes: %d %d\t", cmd->dqbytes, cmd->nbytes); cmd->data->print_line(cmd->dqbytes);//song 
+      //while(cmd->dqbytes < 128  && cmd->data->mm_wid[cmd->dqbytes/m_config->dram_atom_size] == -1) cmd->dqbytes += m_config->dram_atom_size; 
 #ifdef DRAM_VIEWCMD
       printf("\tDQ: BK%d Row:%03x Col:%03x", cmd->bk, cmd->row,
              cmd->col + cmd->dqbytes);
@@ -580,6 +583,9 @@ bool dram_t::issue_col_command(int j) {
       bwutil_partial += m_config->BL / m_config->data_command_freq_ratio;
       bk[j]->n_access++;
 
+      //bk[j]->mrq->data->print_line(bk[j]->mrq->txbytes-32);
+      //printf("\tRD  Bk:%d Row:%03x Col:%03x %03x \n", j, bk[j]->curr_row,
+       //      bk[j]->mrq->col + bk[j]->mrq->txbytes - m_config->dram_atom_size, bk[j]->mrq->txbytes); //song
 #ifdef DRAM_VERIFY
       PRINT_CYCLE = 1;
       printf("\tRD  Bk:%d Row:%03x Col:%03x \n", j, bk[j]->curr_row,
@@ -613,6 +619,10 @@ bool dram_t::issue_col_command(int j) {
         n_wr++;
       bwutil += m_config->BL / m_config->data_command_freq_ratio;
       bwutil_partial += m_config->BL / m_config->data_command_freq_ratio;
+
+     //bk[j]->mrq->data->print_line(bk[j]->mrq->txbytes-32);
+     //printf("\tWR  Bk:%d Row:%03x Col:%03x %03x\n", j, bk[j]->curr_row,
+      //       bk[j]->mrq->col + bk[j]->mrq->txbytes - m_config->dram_atom_size, bk[j]->mrq->txbytes); //song
 #ifdef DRAM_VERIFY
       PRINT_CYCLE = 1;
       printf("\tWR  Bk:%d Row:%03x Col:%03x \n", j, bk[j]->curr_row,
@@ -638,6 +648,8 @@ bool dram_t::issue_row_command(int j) {
     // else
     if (!issued && !RRDc && (bk[j]->state == BANK_IDLE) && !bk[j]->RPc &&
         !bk[j]->RCc) {  //
+      printf("ACT,BK,%d,NewRow,0x%03x,From,0x%03x,\n", j, bk[j]->mrq->row, 
+             bk[j]->curr_row); //song
 #ifdef DRAM_VERIFY
       PRINT_CYCLE = 1;
       printf("\tACT BK:%d NewRow:%03x From:%03x \n", j, bk[j]->mrq->row,

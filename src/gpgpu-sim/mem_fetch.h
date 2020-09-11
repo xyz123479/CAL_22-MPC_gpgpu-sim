@@ -74,7 +74,9 @@ class mem_fetch {
   void do_atomic();
 
   void print(FILE *fp, bool print_inst = true) const;
-
+  void print_data(int type) const;          // Added by song
+  void print_line(unsigned dqbytes) const;  // Added by song
+  void write_data(unsigned char *input_data);
   const addrdec_t &get_tlx_addr() const { return m_raw_addr; }
   void set_chip(unsigned chip_id) { m_raw_addr.chip = chip_id; }
   void set_parition(unsigned sub_partition_id) {
@@ -127,14 +129,19 @@ class mem_fetch {
 
   mem_fetch *get_original_mf() { return original_mf; }
   mem_fetch *get_original_wr_mf() { return original_wr_mf; }
-
- private:
+  void set_inst_count(unsigned inst_count) {m_inst_count[0] = inst_count;};//song
+public:
+  unsigned char data[128]; //song
+  unsigned m_inst_count[4]; 
   // request source information
   unsigned m_request_uid;
   unsigned m_sid;
   unsigned m_tpc;
   unsigned m_wid;
-
+  unsigned mm_sid[4];
+  unsigned mm_tpc[4];
+  unsigned mm_wid[4];
+private:
   // where is this request now?
   enum mem_fetch_status m_status;
   unsigned long long m_status_change;

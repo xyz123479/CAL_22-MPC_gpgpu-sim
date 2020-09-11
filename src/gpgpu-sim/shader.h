@@ -121,6 +121,8 @@ class shd_warp_t {
     // Jin: cdp support
     m_cdp_latency = 0;
     m_cdp_dummy = false;
+    m_inst_count = 0;//song
+    
   }
   void init(address_type start_pc, unsigned cta_id, unsigned wid,
             const std::bitset<MAX_WARP_SIZE> &active,
@@ -138,6 +140,8 @@ class shd_warp_t {
     // Jin: cdp support
     m_cdp_latency = 0;
     m_cdp_dummy = false;
+
+    m_inst_count = 0;  // song
   }
 
   bool functional_done() const;
@@ -247,7 +251,11 @@ class shd_warp_t {
   unsigned m_dynamic_warp_id;
 
   address_type m_next_pc;
-  unsigned n_completed;  // number of threads in warp completed
+
+ public:
+  unsigned n_completed;   // number of threads in warp completed
+  unsigned m_inst_count;  // song
+ private:
   std::bitset<MAX_WARP_SIZE> m_active_threads;
 
   bool m_imiss_pending;
@@ -2211,7 +2219,9 @@ class shader_core_ctx : public core_t {
   int m_last_warp_fetched;
 
   // decode/dispatch
+ public: //song
   std::vector<shd_warp_t *> m_warp;  // per warp information array
+ private:
   barrier_set_t m_barriers;
   ifetch_buffer_t m_inst_fetch_buffer;
   std::vector<register_set> m_pipeline_reg;
