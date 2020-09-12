@@ -677,13 +677,13 @@ unsigned long long &cache_stats::operator()(int access_type, int access_outcome,
   /// read/write member functions
   ///
   if (fail_outcome) {
-    if (!check_fail_valid(access_type, access_outcome))
-      assert(0 && "Unknown cache access type or fail outcome");
+//     if (!check_fail_valid(access_type, access_outcome))
+//       assert(0 && "Unknown cache access type or fail outcome");
 
     return m_fail_stats[access_type][access_outcome];
   } else {
-    if (!check_valid(access_type, access_outcome))
-      assert(0 && "Unknown cache access type or access outcome");
+//     if (!check_valid(access_type, access_outcome))
+//       assert(0 && "Unknown cache access type or access outcome");
 
     return m_stats[access_type][access_outcome];
   }
@@ -695,13 +695,13 @@ unsigned long long cache_stats::operator()(int access_type, int access_outcome,
   /// Const accessor into m_stats.
   ///
   if (fail_outcome) {
-    if (!check_fail_valid(access_type, access_outcome))
-      assert(0 && "Unknown cache access type or fail outcome");
-
+//     if (!check_fail_valid(access_type, access_outcome))
+//       assert(0 && "Unknown cache access type or fail outcome");
+ 
     return m_fail_stats[access_type][access_outcome];
   } else {
-    if (!check_valid(access_type, access_outcome))
-      assert(0 && "Unknown cache access type or access outcome");
+//     if (!check_valid(access_type, access_outcome))
+//       assert(0 && "Unknown cache access type or access outcome");
 
     return m_stats[access_type][access_outcome];
   }
