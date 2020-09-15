@@ -42,6 +42,7 @@
 #include "../cuda-sim/memory.h"
 
 // JIN
+#include "../../libcuda/gpgpu_context.h"
 #include "../gpgpusim_entrypoint.h"
 extern FILE *data_trace_output_FP;
 
@@ -195,7 +196,7 @@ void mem_fetch::print_data(int type) const {
 	  unsigned int bank = m_raw_addr.bk;
 	  unsigned int col  = m_raw_addr.col;
 	  unsigned int req_size = get_data_size();
-	  unsigned int *req_data = (unsigned int *)malloc(sizeof(unsigned int) * req_size);
+	  unsigned char *req_data = (unsigned char *)malloc(sizeof(unsigned char) * req_size);
 	  for(int i = 0; i < req_size; i++) req_data[i] = data[i];
 
 	  fwrite(req_pos,   sizeof(char),       4, data_trace_output_FP);
@@ -213,7 +214,7 @@ void mem_fetch::print_data(int type) const {
 	  fwrite(&bank,     sizeof(int),        1, data_trace_output_FP);
 	  fwrite(&col,      sizeof(int),        1, data_trace_output_FP);
 	  fwrite(&req_size, sizeof(int),        1, data_trace_output_FP);
-	  fwrite(req_data,  sizeof(int), req_size, data_trace_output_FP);
+	  fwrite(req_data,  sizeof(char), req_size, data_trace_output_FP);
 
 	  free(req_pos);
 	  free(req_data);
@@ -239,7 +240,7 @@ void mem_fetch::print_data(int type) const {
         unsigned int bank = m_raw_addr.bk;
         unsigned int col  = m_raw_addr.col;
         unsigned int req_size = 32;
-        unsigned int *req_data = (unsigned int *)malloc(sizeof(unsigned int) * req_size);
+        unsigned char *req_data = (unsigned char *)malloc(sizeof(unsigned char) * req_size);
 		for (int i = 0; i < req_size; i++) req_data[i] = data[i + req_size * j];
         
         fwrite(req_pos,   sizeof(char),       4, data_trace_output_FP);
@@ -257,7 +258,7 @@ void mem_fetch::print_data(int type) const {
         fwrite(&bank,     sizeof(int),        1, data_trace_output_FP);
         fwrite(&col,      sizeof(int),        1, data_trace_output_FP);
         fwrite(&req_size, sizeof(int),        1, data_trace_output_FP);
-        fwrite(req_data,  sizeof(int), req_size, data_trace_output_FP);
+        fwrite(req_data,  sizeof(char), req_size, data_trace_output_FP);
 
 		free(req_pos);
 		free(req_data);
