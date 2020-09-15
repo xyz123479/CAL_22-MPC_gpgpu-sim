@@ -33,12 +33,17 @@
 #include "visualizer.h"
 #include "gpu-sim.h"
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <queue>
 #include <set>
 #include "../abstract_hardware_model.h"
 #include "../cuda-sim/memory.h"
+
+// JIN
+#include "../gpgpusim_entrypoint.h"
+extern FILE *data_trace_output_FP;
 
 extern gpgpu_context *ctx;
 
@@ -119,54 +124,147 @@ void mem_fetch::write_data(unsigned char *input_data) {
 
 // Added by song
 void mem_fetch::print_data(int type) const {
-  unsigned char buffer[128];
-  if (get_type() == 0) {
-     printf("REQ,");
-
-    if (type == 0) printf("DRAM,");
-    else if (type == 1) printf("RAM,");
-
-    printf("READ,");
-    printf("%llu,", m_status_change);
-    printf("%02d,", get_tpc());
-    printf("%02d,", get_sid());
-    printf("%02d,", get_wid());
-    printf("0x%08x,", get_pc());
-    printf("%d,", m_inst_count[0]);
-    printf("0x%08llx,", get_addr());
-    printf("%d,", get_data_size());
-    printf("%d,", get_access_type());
-    printf("RAW,0x%03x,%03d,%03d,0x%03x,",
-            m_raw_addr.row, m_raw_addr.chip, m_raw_addr.bk, m_raw_addr.col);
-    for (int i = 0; i < get_data_size(); i++) printf("%02x,", data[i]);
-    printf("\n");
-  }
-  else {
-    for (int j = 0; j < 4; j++) {
-
-      if (mm_tpc[j] == -1 || mm_sid[j] == -1 || mm_wid[j] == -1) continue;
-
-      printf("REQ,");
+  if(data_trace_output_FP == NULL) {
+    // unsigned char buffer[128];
+    if (get_type() == 0) {
+       printf("REQ,");
+  
       if (type == 0) printf("DRAM,");
       else if (type == 1) printf("RAM,");
-      
-      printf("WRITE,");
+  
+      printf("READ,");
       printf("%llu,", m_status_change);
-      printf("%02d,", mm_tpc[j]);
-      printf("%02d,", mm_sid[j]);
-      printf("%02d,", mm_wid[j]);
+      printf("%02d,", get_tpc());
+      printf("%02d,", get_sid());
+      printf("%02d,", get_wid());
       printf("0x%08x,", get_pc());
-      printf("%d,", m_inst_count[j]);
-      printf("0x%08llx,", get_addr() + j * 32);
-      printf("%d,", 32);
+      printf("%d,", m_inst_count[0]);
+      printf("0x%08llx,", get_addr());
+      printf("%d,", get_data_size());
       printf("%d,", get_access_type());
-      printf("RAW,0x%03x,%03d,%03d,0x%03x,", m_raw_addr.row,
-              m_raw_addr.chip, m_raw_addr.bk, m_raw_addr.col);
-      for (int i = 32*j; i < 32*j+32 ; i++) printf("%02x,", data[i]);
+      printf("RAW,0x%03x,%03d,%03d,0x%03x,",
+              m_raw_addr.row, m_raw_addr.chip, m_raw_addr.bk, m_raw_addr.col);
+      for (int i = 0; i < get_data_size(); i++) printf("%02x,", data[i]);
       printf("\n");
     }
+    else {
+      for (int j = 0; j < 4; j++) {
+  
+        if (mm_tpc[j] == -1 || mm_sid[j] == -1 || mm_wid[j] == -1) continue;
+  
+        printf("REQ,");
+        if (type == 0) printf("DRAM,");
+        else if (type == 1) printf("RAM,");
+        
+        printf("WRITE,");
+        printf("%llu,", m_status_change);
+        printf("%02d,", mm_tpc[j]);
+        printf("%02d,", mm_sid[j]);
+        printf("%02d,", mm_wid[j]);
+        printf("0x%08x,", get_pc());
+        printf("%d,", m_inst_count[j]);
+        printf("0x%08llx,", get_addr() + j * 32);
+        printf("%d,", 32);
+        printf("%d,", get_access_type());
+        printf("RAW,0x%03x,%03d,%03d,0x%03x,", m_raw_addr.row,
+                m_raw_addr.chip, m_raw_addr.bk, m_raw_addr.col);
+        for (int i = 32*j; i < 32*j+32 ; i++) printf("%02x,", data[i]);
+        printf("\n");
+      }
+    }
+    return ;
   }
-  return;
+  else {
+    // JIN
+    if (get_type() == 0) {
+      char *req_pos = (char *)malloc(sizeof(char) * 5);
+      if (type == 0)      strcpy(req_pos, "DRAM");
+      else if (type == 1) strcpy(req_pos, " RAM");
+
+	  char rw = 'r';
+	  unsigned long long cycle = m_status_change;
+	  unsigned int cid = get_tpc();
+	  unsigned int sid = get_sid();
+	  unsigned int wid = get_wid();
+	  unsigned int pc = get_pc();
+	  unsigned int inst_cnt = m_inst_count[0];
+	  unsigned long long mem_addr = get_addr();
+	  unsigned int req_type = get_access_type();
+	  unsigned int row  = m_raw_addr.row;
+	  unsigned int chip = m_raw_addr.chip;
+	  unsigned int bank = m_raw_addr.bk;
+	  unsigned int col  = m_raw_addr.col;
+	  unsigned int req_size = get_data_size();
+	  unsigned int *req_data = (unsigned int *)malloc(sizeof(unsigned int) * req_size);
+	  for(int i = 0; i < req_size; i++) req_data[i] = data[i];
+
+	  fwrite(req_pos,   sizeof(char),       4, data_trace_output_FP);
+	  fwrite(&rw,       sizeof(char),       1, data_trace_output_FP);
+	  fwrite(&cycle,    sizeof(long long),  1, data_trace_output_FP);
+	  fwrite(&cid,      sizeof(int),        1, data_trace_output_FP);
+	  fwrite(&sid,      sizeof(int),        1, data_trace_output_FP);
+	  fwrite(&wid,      sizeof(int),        1, data_trace_output_FP);
+	  fwrite(&pc,       sizeof(int),        1, data_trace_output_FP);
+	  fwrite(&inst_cnt, sizeof(int),        1, data_trace_output_FP);
+	  fwrite(&mem_addr, sizeof(long long),  1, data_trace_output_FP);
+	  fwrite(&req_type, sizeof(int),        1, data_trace_output_FP);
+	  fwrite(&row,      sizeof(int),        1, data_trace_output_FP);
+	  fwrite(&chip,     sizeof(int),        1, data_trace_output_FP);
+	  fwrite(&bank,     sizeof(int),        1, data_trace_output_FP);
+	  fwrite(&col,      sizeof(int),        1, data_trace_output_FP);
+	  fwrite(&req_size, sizeof(int),        1, data_trace_output_FP);
+	  fwrite(req_data,  sizeof(int), req_size, data_trace_output_FP);
+
+	  free(req_pos);
+	  free(req_data);
+	}
+	else {
+      for(int j = 0; j < 4; j++) {
+        if (mm_tpc[j] == -1 || mm_sid[j] == -1 || mm_wid[j] == -1) continue;
+		char *req_pos = (char *)malloc(sizeof(char) * 5);
+        if (type == 0)      strcpy(req_pos, "DRAM");
+        else if (type == 1) strcpy(req_pos, " RAM");
+    
+   	    char rw = 'w';
+   	    unsigned long long cycle = m_status_change;
+   	    unsigned int cid = get_tpc();
+   	    unsigned int sid = get_sid();
+   	    unsigned int wid = get_wid();
+        unsigned int pc = get_pc();
+        unsigned int inst_cnt = m_inst_count[0];
+        unsigned long long mem_addr = get_addr() + j * 32;
+        unsigned int req_type = get_access_type();
+        unsigned int row  = m_raw_addr.row;
+        unsigned int chip = m_raw_addr.chip;
+        unsigned int bank = m_raw_addr.bk;
+        unsigned int col  = m_raw_addr.col;
+        unsigned int req_size = 32;
+        unsigned int *req_data = (unsigned int *)malloc(sizeof(unsigned int) * req_size);
+		for (int i = 0; i < req_size; i++) req_data[i] = data[i + req_size * j];
+        
+        fwrite(req_pos,   sizeof(char),       4, data_trace_output_FP);
+        fwrite(&rw,       sizeof(char),       1, data_trace_output_FP);
+        fwrite(&cycle,    sizeof(long long),  1, data_trace_output_FP);
+        fwrite(&cid,      sizeof(int),        1, data_trace_output_FP);
+        fwrite(&sid,      sizeof(int),        1, data_trace_output_FP);
+        fwrite(&wid,      sizeof(int),        1, data_trace_output_FP);
+        fwrite(&pc,       sizeof(int),        1, data_trace_output_FP);
+        fwrite(&inst_cnt, sizeof(int),        1, data_trace_output_FP);
+        fwrite(&mem_addr, sizeof(long long),  1, data_trace_output_FP);
+        fwrite(&req_type, sizeof(int),        1, data_trace_output_FP);
+        fwrite(&row,      sizeof(int),        1, data_trace_output_FP);
+        fwrite(&chip,     sizeof(int),        1, data_trace_output_FP);
+        fwrite(&bank,     sizeof(int),        1, data_trace_output_FP);
+        fwrite(&col,      sizeof(int),        1, data_trace_output_FP);
+        fwrite(&req_size, sizeof(int),        1, data_trace_output_FP);
+        fwrite(req_data,  sizeof(int), req_size, data_trace_output_FP);
+
+		free(req_pos);
+		free(req_data);
+	  }
+	}
+    return ;
+  }
 }
 
 // Added by song

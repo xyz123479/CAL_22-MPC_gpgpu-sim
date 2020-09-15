@@ -1,5 +1,4 @@
-// Copyright (c) 2009-2011, Tor M. Aamodt
-// The University of British Columbia
+// Copyright (c) 2009-2011, Tor M. Aamodt // The University of British Columbia
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -33,6 +32,9 @@
 #include <semaphore.h>
 #include <time.h>
 #include "abstract_hardware_model.h"
+
+// JIN
+extern FILE *data_trace_output_FP;
 
 // extern time_t g_simulation_starttime;
 class gpgpu_context;

@@ -424,6 +424,12 @@ class gpgpu_sim_config : public power_config,
   unsigned int gpgpu_compute_capability_minor;
   unsigned long long liveness_message_freq;
 
+  // JIN
+ public:
+  char *data_trace_output_path;
+// public:
+  //FILE *data_trace_output_FP;
+
   friend class gpgpu_sim;
 };
 

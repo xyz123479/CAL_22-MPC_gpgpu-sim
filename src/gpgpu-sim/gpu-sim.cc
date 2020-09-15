@@ -656,6 +656,22 @@ void gpgpu_sim_config::reg_options(option_parser_t opp) {
                          &(gpgpu_ctx->device_runtime->g_TB_launch_latency),
                          "thread block launch latency in cycles. Default: 0",
                          "0");
+
+  // JIN
+  option_parser_register(opp, "-data_trace_output_path", OPT_CSTR,
+		  				&data_trace_output_path,
+						"Data trace output path. Default: NULL", NULL);
+//   if(data_trace_output_path == NULL) {
+// 	  printf("NOT HELLOW~~~\n");
+// 	  data_trace_output_FP = NULL;
+//   }
+//   else {
+// 	  printf("HELLOW~~~\n");
+//       data_trace_output_FP = fopen(data_trace_output_path, "wb");
+// 	  assert(data_trace_output_FP != NULL);
+// 	  fwrite("abc",3,1,data_trace_output_FP);
+// 	  // fwrite
+//   }
 }
 
 /////////////////////////////////////////////////////////////////////////////

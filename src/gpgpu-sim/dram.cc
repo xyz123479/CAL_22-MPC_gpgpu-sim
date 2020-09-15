@@ -648,8 +648,6 @@ bool dram_t::issue_row_command(int j) {
     // else
     if (!issued && !RRDc && (bk[j]->state == BANK_IDLE) && !bk[j]->RPc &&
         !bk[j]->RCc) {  //
-      printf("ACT,BK,%d,NewRow,0x%03x,From,0x%03x,\n", j, bk[j]->mrq->row, 
-             bk[j]->curr_row); //song
 #ifdef DRAM_VERIFY
       PRINT_CYCLE = 1;
       printf("\tACT BK:%d NewRow:%03x From:%03x \n", j, bk[j]->mrq->row,

@@ -40,6 +40,9 @@
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
+// JIN
+FILE *data_trace_output_FP;
+
 static int sg_argc = 3;
 static const char *sg_argv[] = {"", "-config", "gpgpusim.config"};
 
@@ -194,6 +197,93 @@ void gpgpu_context::exit_simulation() {
   fflush(stdout);
 }
 
+// JIN
+void key_header_write(FILE *fp) {
+	const int num_of_keys = 16;
+	fwrite(&num_of_keys, sizeof(int), 1, fp);
+
+	const char request_position[] = "@  pos";
+	const int request_position_size = sizeof(char)*4;
+	fwrite(request_position, sizeof(char), 6, fp);
+	fwrite(&request_position_size, sizeof(int), 1, fp);
+
+	const char rw[] = "@   rw";
+	const int rw_size = sizeof(char);
+	fwrite(rw, sizeof(char), 6, fp);
+	fwrite(&rw_size, sizeof(int), 1, fp);
+
+	const char cycle[] = " cycle";
+	const int cycle_size = sizeof(long long);
+	fwrite(cycle, sizeof(char), 6, fp);
+	fwrite(&cycle_size, sizeof(int), 1, fp);
+	
+	const char cluster_id[] = "   cid";
+	const int cluster_id_size = sizeof(int);
+	fwrite(cluster_id, sizeof(char), 6, fp);
+	fwrite(&cluster_id_size, sizeof(int), 1, fp);
+
+	const char sm_id[] = "   sid";
+	const int sm_id_size = sizeof(int);
+	fwrite(sm_id, sizeof(char), 6, fp);
+	fwrite(&sm_id_size, sizeof(int), 1, fp);
+
+	const char warp_id[] = "   wid";
+	const int warp_id_size = sizeof(int);
+	fwrite(warp_id, sizeof(char), 6, fp);
+	fwrite(&warp_id_size, sizeof(int), 1, fp);
+
+	const char program_counter[] = "    pc";
+	const int program_counter_size = sizeof(int);
+	fwrite(program_counter, sizeof(char), 6, fp);
+	fwrite(&program_counter_size, sizeof(int), 1, fp);
+
+	const char instruction_counter[] = " i_cnt";
+	const int instruction_counter_size = sizeof(int);
+	fwrite(instruction_counter, sizeof(char), 6, fp);
+	fwrite(&instruction_counter_size, sizeof(int), 1, fp);
+
+	const char mem_address[] = "  addr";
+	const int mem_address_size = sizeof(long long);
+	fwrite(mem_address, sizeof(char), 6, fp);
+	fwrite(&mem_address_size, sizeof(int), 1, fp);
+
+	const char request_type[] = "retype";
+	const int request_type_size = sizeof(int);
+	fwrite(request_type, sizeof(char), 6, fp);
+	fwrite(&request_type_size, sizeof(int), 1, fp);
+
+	const char row[] = "   row";
+	const int row_size = sizeof(int);
+	fwrite(row, sizeof(char), 6, fp);
+	fwrite(&row_size, sizeof(int), 1, fp);
+
+	const char chip[] = "  chip";
+	const int chip_size = sizeof(int);
+	fwrite(chip, sizeof(char), 6, fp);
+	fwrite(&chip_size, sizeof(int), 1, fp);
+
+	const char bank[] = "  bank";
+	const int bank_size = sizeof(int);
+	fwrite(bank, sizeof(char), 6, fp);
+	fwrite(&bank_size, sizeof(int), 1, fp);
+
+	const char col[] = "   col";
+	const int col_size = sizeof(int);
+	fwrite(col, sizeof(char), 6, fp);
+	fwrite(&col_size, sizeof(int), 1, fp);
+
+	const char request_size[] = "  size";
+	const int request_size_size = sizeof(int);
+	fwrite(request_size, sizeof(char), 6, fp);
+	fwrite(&request_size_size, sizeof(int), 1, fp);
+
+	const char data[] = "  data";
+	const int data_size = 0;
+	fwrite(data, sizeof(char), 6, fp);
+	fwrite(&data_size, sizeof(int), 1, fp);
+
+}
+
 gpgpu_sim *gpgpu_context::gpgpu_ptx_sim_init_perf() {
   srand(1);
   print_splash();
@@ -217,6 +307,18 @@ gpgpu_sim *gpgpu_context::gpgpu_ptx_sim_init_perf() {
   // system environment variables
   assert(setlocale(LC_NUMERIC, "C"));
   the_gpgpusim->g_the_gpu_config->init();
+
+  // JIN
+  const char *output_path = the_gpgpusim->g_the_gpu_config->data_trace_output_path;
+  if(output_path == NULL) {
+	data_trace_output_FP = NULL;
+  }
+  else {
+	printf("%s\n", output_path);
+    data_trace_output_FP = fopen(output_path, "wb");
+	assert(data_trace_output_FP != NULL);
+	key_header_write(data_trace_output_FP);
+  }
 
   the_gpgpusim->g_the_gpu =
       new exec_gpgpu_sim(*(the_gpgpusim->g_the_gpu_config), this);
