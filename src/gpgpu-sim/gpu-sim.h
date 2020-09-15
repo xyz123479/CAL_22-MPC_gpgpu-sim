@@ -68,6 +68,9 @@ extern tr1_hash_map<new_addr_type, unsigned> address_random_interleaving;
 
 enum dram_ctrl_t { DRAM_FIFO = 0, DRAM_FRFCFS = 1 };
 
+// JIN
+extern int global_kernel_id;
+
 struct power_config {
   power_config() { m_valid = true; }
   void init() {
@@ -427,8 +430,7 @@ class gpgpu_sim_config : public power_config,
   // JIN
  public:
   char *data_trace_output_path;
-// public:
-  //FILE *data_trace_output_FP;
+  char *kernel_trace_output_path;
 
   friend class gpgpu_sim;
 };

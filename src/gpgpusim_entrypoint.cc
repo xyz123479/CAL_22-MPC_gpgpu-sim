@@ -199,13 +199,18 @@ void gpgpu_context::exit_simulation() {
 
 // JIN
 void key_header_write(FILE *fp) {
-	const char num_of_keys = 16;
+	const char num_of_keys = 17;
 	fwrite(&num_of_keys, sizeof(char), 1, fp);
 
 	const char request_position[] = "@  pos";
 	const char request_position_size = sizeof(char)*4;
 	fwrite(request_position, sizeof(char), 6, fp);
 	fwrite(&request_position_size, sizeof(char), 1, fp);
+
+	const char kernel_id[] = "   kid";
+	const char kernel_id_size = sizeof(char);
+	fwrite(kernel_id, sizeof(char), 6, fp);
+	fwrite(&kernel_id_size, sizeof(char), 1, fp);
 
 	const char rw[] = "@   rw";
 	const char rw_size = sizeof(char);

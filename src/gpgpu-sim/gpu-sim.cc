@@ -661,17 +661,9 @@ void gpgpu_sim_config::reg_options(option_parser_t opp) {
   option_parser_register(opp, "-data_trace_output_path", OPT_CSTR,
 		  				&data_trace_output_path,
 						"Data trace output path. Default: NULL", NULL);
-//   if(data_trace_output_path == NULL) {
-// 	  printf("NOT HELLOW~~~\n");
-// 	  data_trace_output_FP = NULL;
-//   }
-//   else {
-// 	  printf("HELLOW~~~\n");
-//       data_trace_output_FP = fopen(data_trace_output_path, "wb");
-// 	  assert(data_trace_output_FP != NULL);
-// 	  fwrite("abc",3,1,data_trace_output_FP);
-// 	  // fwrite
-//   }
+  option_parser_register(opp, "-kernel_trace_output_path", OPT_CSTR,
+		                &kernel_trace_output_path,
+						"Kernel name and uid path. Default: NULL", NULL);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1135,16 +1127,42 @@ void gpgpu_sim::deadlock_check() {
   }
 }
 
+// JIN
+int global_kernel_id = 1;
 /// printing the names and uids of a set of executed kernels (usually there is
 /// only one)
 std::string gpgpu_sim::executed_kernel_info_string() {
   std::stringstream statout;
+
+  // JIN
+  FILE *kernel_FP;
+  if(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path == NULL)
+    kernel_FP = NULL;
+  else {
+    kernel_FP = fopen(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path, "a");
+
+    fprintf(kernel_FP, "kernel_name = ");
+    for (unsigned int k = 0; k < m_executed_kernel_names.size(); k++) {
+      fprintf(kernel_FP, "%s ", m_executed_kernel_names[k].c_str());
+    }
+    fprintf(kernel_FP, "\t");
+
+    fprintf(kernel_FP, "kernel_launch_uid = ");
+    for (unsigned int k = 0; k < m_executed_kernel_uids.size(); k++) {
+      fprintf(kernel_FP, "%d ", m_executed_kernel_uids[k]);
+	  global_kernel_id = m_executed_kernel_uids[k];
+    }
+    fprintf(kernel_FP, "\n");
+  
+    fclose(kernel_FP);
+  }
 
   statout << "kernel_name = ";
   for (unsigned int k = 0; k < m_executed_kernel_names.size(); k++) {
     statout << m_executed_kernel_names[k] << " ";
   }
   statout << std::endl;
+  
   statout << "kernel_launch_uid = ";
   for (unsigned int k = 0; k < m_executed_kernel_uids.size(); k++) {
     statout << m_executed_kernel_uids[k] << " ";

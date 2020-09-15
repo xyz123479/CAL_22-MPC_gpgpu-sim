@@ -42,9 +42,9 @@
 #include "../cuda-sim/memory.h"
 
 // JIN
-#include "../../libcuda/gpgpu_context.h"
 #include "../gpgpusim_entrypoint.h"
 extern FILE *data_trace_output_FP;
+extern int global_kernel_id;
 
 extern gpgpu_context *ctx;
 
@@ -134,6 +134,7 @@ void mem_fetch::print_data(int type) const {
       else if (type == 1) printf("RAM,");
   
       printf("READ,");
+	  printf("%02d,", global_kernel_id);
       printf("%llu,", m_status_change);
       printf("%02d,", get_tpc());
       printf("%02d,", get_sid());
@@ -158,7 +159,9 @@ void mem_fetch::print_data(int type) const {
         else if (type == 1) printf("RAM,");
         
         printf("WRITE,");
+        printf("%02d,", global_kernel_id);
         printf("%llu,", m_status_change);
+		printf("%02d,", global_kernel_id);
         printf("%02d,", mm_tpc[j]);
         printf("%02d,", mm_sid[j]);
         printf("%02d,", mm_wid[j]);
@@ -183,6 +186,7 @@ void mem_fetch::print_data(int type) const {
       else if (type == 1) strcpy(req_pos, " RAM");
 
 	  char rw = 'r';
+	  unsigned char kid = (char)global_kernel_id;
 	  unsigned long long cycle = m_status_change;
 	  unsigned int cid = get_tpc();
 	  unsigned int sid = get_sid();
@@ -200,6 +204,7 @@ void mem_fetch::print_data(int type) const {
 	  for(int i = 0; i < req_size; i++) req_data[i] = data[i];
 
 	  fwrite(req_pos,   sizeof(char),       4, data_trace_output_FP);
+	  fwrite(&kid,      sizeof(char),       1, data_trace_output_FP);
 	  fwrite(&rw,       sizeof(char),       1, data_trace_output_FP);
 	  fwrite(&cycle,    sizeof(long long),  1, data_trace_output_FP);
 	  fwrite(&cid,      sizeof(int),        1, data_trace_output_FP);
@@ -227,6 +232,7 @@ void mem_fetch::print_data(int type) const {
         else if (type == 1) strcpy(req_pos, " RAM");
     
    	    char rw = 'w';
+		unsigned char kid = (char)global_kernel_id;
    	    unsigned long long cycle = m_status_change;
    	    unsigned int cid = get_tpc();
    	    unsigned int sid = get_sid();
@@ -244,6 +250,7 @@ void mem_fetch::print_data(int type) const {
 		for (int i = 0; i < req_size; i++) req_data[i] = data[i + req_size * j];
         
         fwrite(req_pos,   sizeof(char),       4, data_trace_output_FP);
+		fwrite(&kid,      sizeof(char),       1, data_trace_output_FP);
         fwrite(&rw,       sizeof(char),       1, data_trace_output_FP);
         fwrite(&cycle,    sizeof(long long),  1, data_trace_output_FP);
         fwrite(&cid,      sizeof(int),        1, data_trace_output_FP);
