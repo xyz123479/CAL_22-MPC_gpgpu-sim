@@ -317,7 +317,9 @@ enum cache_request_status tag_array::probe(new_addr_type addr, unsigned &idx,
         pending_lines.find(m_config.block_addr(addr));
     assert(mf);
     if (!mf->is_write() && i != pending_lines.end()) {
-      if (i->second != mf->get_inst().get_uid()) return SECTOR_MISS;
+      if (i->second != mf->get_inst().get_uid()) {
+	    return SECTOR_MISS;
+	  }
     }
   }
 
@@ -1478,7 +1480,7 @@ enum cache_request_status data_cache::wr_miss_wa_lazy_fetch_on_read(
   memcpy(evicted.m_wid, block->m_wid, 4 * 4);  // song
   memcpy(evicted.m_inst_count, block->m_inst_count, 4 * 4);
 
-  	block->clear_data(cache_index);
+  block->clear_data(cache_index);
   block->set_data(cache_index, mf->get_access_sector_mask(), mf->data,
                   mf->get_data_size());
   block->set_id(cache_index, mf->get_access_sector_mask(), mf);  // song
