@@ -270,11 +270,17 @@ void dram_t::scheduler_fifo() {
   if (!mrqq->empty()) {
     unsigned int bkn;
     dram_req_t *head_mrqq = mrqq->top();
+
     head_mrqq->data->set_status(
         IN_PARTITION_MC_BANK_ARB_QUEUE,
         m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+
     bkn = head_mrqq->bk;
-    if (!bk[bkn]->mrq) bk[bkn]->mrq = mrqq->pop();
+    if (!bk[bkn]->mrq) {
+		dram_req_t *req = mrqq->pop();
+		req->data->print_data(0);  // JIN
+		bk[bkn]->mrq = req;
+	}
   }
 }
 

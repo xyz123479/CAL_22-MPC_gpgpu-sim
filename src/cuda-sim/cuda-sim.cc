@@ -475,8 +475,21 @@ void gpgpu_t::memcpy_to_gpu(size_t dst_start_addr, const void *src,
     fflush(stdout);
   }
   char *src_data = (char *)src;
-  for (unsigned n = 0; n < count; n++)
+
+  // JIN
+  FILE *kernel_FP;
+  if(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path == NULL) {
+    kernel_FP = NULL;
+  } else {
+    kernel_FP = fopen(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path, "a");
+	fprintf(kernel_FP, "memcpy cpu to gpu\n");
+	fprintf(kernel_FP, "addr start point : %u, size : %u\n", dst_start_addr, count);
+    fclose(kernel_FP);
+  }
+
+  for (unsigned n = 0; n < count; n++) {
     m_global_mem->write(dst_start_addr + n, 1, src_data + n, NULL, NULL);
+  }
 
   // Copy into the performance model.
   // extern gpgpu_sim* g_the_gpu;
@@ -512,6 +525,18 @@ void gpgpu_t::memcpy_gpu_to_gpu(size_t dst, size_t src, size_t count) {
            count, (unsigned long long)src, (unsigned long long)dst);
     fflush(stdout);
   }
+
+  // JIN
+  FILE *kernel_FP;
+  if(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path == NULL) {
+    kernel_FP = NULL;
+  } else {
+    kernel_FP = fopen(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path, "a");
+	fprintf(kernel_FP, "memcpy gpu to gpu\n");
+	fprintf(kernel_FP, "addr start point : %u, size : %u\n", dst, count);
+    fclose(kernel_FP);
+  }
+
   for (unsigned n = 0; n < count; n++) {
     unsigned char tmp;
     m_global_mem->read(src + n, 1, &tmp);
