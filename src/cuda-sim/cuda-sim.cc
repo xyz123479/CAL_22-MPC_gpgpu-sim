@@ -448,6 +448,17 @@ void *gpgpu_t::gpu_malloc(size_t size) {
   m_dev_malloc += size;
   if (size % 256)
     m_dev_malloc += (256 - size % 256);  // align to 256 byte boundaries
+
+  // JIN
+  FILE *kernel_FP;
+  if(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path == NULL) {
+    kernel_FP = NULL;
+  } else {
+    kernel_FP = fopen(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path, "a");
+	fprintf(kernel_FP, "cudaMalloc(malloc_start_addr: %u, size: %u)\n", result, m_dev_malloc - result);
+    fclose(kernel_FP);
+  }
+
   return (void *)result;
 }
 
@@ -482,8 +493,7 @@ void gpgpu_t::memcpy_to_gpu(size_t dst_start_addr, const void *src,
     kernel_FP = NULL;
   } else {
     kernel_FP = fopen(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path, "a");
-	fprintf(kernel_FP, "memcpy cpu to gpu\n");
-	fprintf(kernel_FP, "addr start point : %u, size : %u\n", dst_start_addr, count);
+	fprintf(kernel_FP, "cudaMemcpyHostToDevice(dst_start_addr: %u, size: %u)\n", dst_start_addr, count);
     fclose(kernel_FP);
   }
 
@@ -510,6 +520,16 @@ void gpgpu_t::memcpy_from_gpu(void *dst, size_t src_start_addr, size_t count) {
   for (unsigned n = 0; n < count; n++)
     m_global_mem->read(src_start_addr + n, 1, dst_data + n);
 
+  // JIN
+  FILE *kernel_FP;
+  if(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path == NULL) {
+    kernel_FP = NULL;
+  } else {
+    kernel_FP = fopen(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path, "a");
+	fprintf(kernel_FP, "cudaMemcpyDeviceToHost(src_start_addr: %u, size: %u)\n", src_start_addr, count);
+    fclose(kernel_FP);
+  }
+
   // Copy into the performance model.
   // extern gpgpu_sim* g_the_gpu;
   gpgpu_ctx->the_gpgpusim->g_the_gpu->perf_memcpy_to_gpu(src_start_addr, count);
@@ -532,8 +552,7 @@ void gpgpu_t::memcpy_gpu_to_gpu(size_t dst, size_t src, size_t count) {
     kernel_FP = NULL;
   } else {
     kernel_FP = fopen(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path, "a");
-	fprintf(kernel_FP, "memcpy gpu to gpu\n");
-	fprintf(kernel_FP, "addr start point : %u, size : %u\n", dst, count);
+	fprintf(kernel_FP, "cudaMemcpyDeviceToDevice(dst_start_addr: %u, size: %u)\n", dst, count);
     fclose(kernel_FP);
   }
 
