@@ -474,6 +474,17 @@ void *gpgpu_t::gpu_mallocarray(size_t size) {
   m_dev_malloc += size;
   if (size % 256)
     m_dev_malloc += (256 - size % 256);  // align to 256 byte boundaries
+
+  // JIN
+  FILE *kernel_FP;
+  if(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path == NULL) {
+    kernel_FP = NULL;
+  } else {
+    kernel_FP = fopen(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path, "a");
+	fprintf(kernel_FP, "cudaMallocArray(malloc_start_addr: %u, size: %u)\n", result, m_dev_malloc - result);
+    fclose(kernel_FP);
+  }
+
   return (void *)result;
 }
 
@@ -575,6 +586,17 @@ void gpgpu_t::gpu_memset(size_t dst_start_addr, int c, size_t count) {
         count, (unsigned char)c, (unsigned long long)dst_start_addr);
     fflush(stdout);
   }
+
+  // JIN
+  FILE *kernel_FP;
+  if(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path == NULL) {
+    kernel_FP = NULL;
+  } else {
+    kernel_FP = fopen(gpgpu_ctx->the_gpgpusim->g_the_gpu_config->kernel_trace_output_path, "a");
+	fprintf(kernel_FP, "cudaMemset(dst_start_addr: %u, value: %d, size: %u)\n", dst_start_addr, c, count);
+    fclose(kernel_FP);
+  }
+
   unsigned char c_value = (unsigned char)c;
   for (unsigned n = 0; n < count; n++)
     m_global_mem->write(dst_start_addr + n, 1, &c_value, NULL, NULL);
