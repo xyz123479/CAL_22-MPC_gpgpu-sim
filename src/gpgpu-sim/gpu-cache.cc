@@ -1021,7 +1021,6 @@ void baseline_cache::cycle() {
     mem_fetch *mf = m_miss_queue.front();
     if (!m_memport->full(mf->size(), mf->get_is_write())) {
       m_miss_queue.pop_front();
-      //mf->print_data(1);
       m_memport->push(mf);
     }
   }

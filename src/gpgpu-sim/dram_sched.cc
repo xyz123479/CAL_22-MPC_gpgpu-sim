@@ -223,7 +223,6 @@ void dram_t::scheduler_frfcfs() {
 
     req->data->set_status(IN_PARTITION_MC_INPUT_QUEUE,
                           m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-//    req->data->print_data(0); //song
     sched->add_req(req);
   }
 
@@ -235,7 +234,7 @@ void dram_t::scheduler_frfcfs() {
       req = sched->schedule(b, bk[b]->curr_row);
 
       if (req) {
-        req->data->print_data(0);  // JIN
+        req->data->print_data();  // JIN
 
         req->data->set_status(IN_PARTITION_MC_BANK_ARB_QUEUE,
                               m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);

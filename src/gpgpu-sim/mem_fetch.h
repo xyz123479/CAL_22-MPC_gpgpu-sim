@@ -74,8 +74,7 @@ class mem_fetch {
   void do_atomic();
 
   void print(FILE *fp, bool print_inst = true) const;
-  void print_data(int type) const;          // Added by song
-  void print_line(unsigned dqbytes) const;  // Added by song
+  void print_data() const;          // Added by song
   void write_data(unsigned char *input_data);
   const addrdec_t &get_tlx_addr() const { return m_raw_addr; }
   void set_chip(unsigned chip_id) { m_raw_addr.chip = chip_id; }
