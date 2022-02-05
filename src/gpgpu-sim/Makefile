@@ -79,6 +79,8 @@ endif
 CSRCS = $(filter-out $(EXCLUDES), $(SRCS))
 
 OBJS = $(CSRCS:%.cc=$(OUTPUT_DIR)/%.$(OEXT))
+
+COMP = $(shell ls ./MPCModules/*.cc)
  
 libgpu_uarch_sim.a:$(OBJS)
 	ar rcs  $(OUTPUT_DIR)/libgpu_uarch_sim.a $(OBJS)
@@ -90,7 +92,7 @@ depend:
 	makedepend -f$(OUTPUT_DIR)/Makefile.makedepend -p$(OUTPUT_DIR)/ $(CSRCS) 2> /dev/null
 
 $(OUTPUT_DIR)/%.$(OEXT): %.cc
-	$(CPP) $(OPTFLAGS) $(CXXFLAGS) $(POWER_FLAGS) -o $(OUTPUT_DIR)/$*.$(OEXT) -c $*.cc
+	$(CPP) $(OPTFLAGS) $(CXXFLAGS) $(POWER_FLAGS) -o $(OUTPUT_DIR)/$*.$(OEXT) -c $*.cc $(COMP)
 
 clean:
 	rm -f *.o core *~ *.a 
