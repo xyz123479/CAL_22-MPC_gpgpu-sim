@@ -58,10 +58,12 @@ mem_fetch *partition_mf_allocator::alloc(new_addr_type addr,
 }
 
 memory_partition_unit::memory_partition_unit(unsigned partition_id,
+                                             class memory_link *link,
                                              const memory_config *config,
                                              class memory_stats_t *stats,
                                              class gpgpu_sim *gpu)
     : m_id(partition_id),
+      m_link(link),
       m_config(config),
       m_stats(stats),
       m_arbitration_metadata(config),
@@ -75,7 +77,7 @@ memory_partition_unit::memory_partition_unit(unsigned partition_id,
     unsigned sub_partition_id =
         m_id * m_config->m_n_sub_partition_per_memory_channel + p;
     m_sub_partition[p] =
-        new memory_sub_partition(sub_partition_id, m_config, stats, gpu);
+        new memory_sub_partition(sub_partition_id, link, m_config, stats, gpu);
   }
 }
 
@@ -322,8 +324,7 @@ void memory_partition_unit::dram_cycle() {
   // L2->DRAM queue to DRAM latency queue
   // Arbitrate among multiple L2 subpartitions
   int last_issued_partition = m_arbitration_metadata.last_borrower();
-  for (unsigned p = 0; p < m_config->m_n_sub_partition_per_memory_channel;
-       p++) {
+  for (unsigned p = 0; p < m_config->m_n_sub_partition_per_memory_channel; p++) {
     int spid = (p + last_issued_partition + 1) %
                m_config->m_n_sub_partition_per_memory_channel;
     if (!m_sub_partition[spid]->L2_dram_queue_empty() &&
@@ -332,6 +333,9 @@ void memory_partition_unit::dram_cycle() {
       if (m_dram->full(mf->is_write())) break;
 
       m_sub_partition[spid]->L2_dram_queue_pop();
+      if (mf == NULL) {
+        continue;
+      }
       MEMPART_DPRINTF(
           "Issue mem_fetch request %p from sub partition %d to dram\n", mf,
           spid);
@@ -406,10 +410,12 @@ void memory_partition_unit::print(FILE *fp) const {
 }
 
 memory_sub_partition::memory_sub_partition(unsigned sub_partition_id,
+                                           class memory_link *link,
                                            const memory_config *config,
                                            class memory_stats_t *stats,
                                            class gpgpu_sim *gpu) {
   m_id = sub_partition_id;
+  m_link = link;
   m_config = config;
   m_stats = stats;
   m_gpu = gpu;
@@ -478,22 +484,24 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   }
 
   // DRAM to L2 (texture) and icnt (not texture)
-  if (!m_dram_L2_queue->empty()) {
-    mem_fetch *mf = m_dram_L2_queue->top();
-    if (!m_config->m_L2_config.disabled() && m_L2cache->waiting_for_fill(mf)) {
-      if (m_L2cache->fill_port_free()) {
-        mf->set_status(IN_PARTITION_L2_FILL_QUEUE,
-                       m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-        m_L2cache->fill(mf, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +
-                                m_memcpy_cycle_offset);
-        m_dram_L2_queue->pop();
+  if (!dram_L2_queue_empty()) {
+    mem_fetch *mf = dram_L2_queue_top();
+    if (mf != NULL) {
+      if (!m_config->m_L2_config.disabled() && m_L2cache->waiting_for_fill(mf)) {
+        if (m_L2cache->fill_port_free()) {
+          mf->set_status(IN_PARTITION_L2_FILL_QUEUE,
+                         m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+          m_L2cache->fill(mf, m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle +
+                                  m_memcpy_cycle_offset);
+          dram_L2_queue_pop();
+        }
+      } else if (!m_L2_icnt_queue->full()) {
+        if (mf->is_write() && mf->get_type() == WRITE_ACK)
+          mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
+                         m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
+        m_L2_icnt_queue->push(mf);
+        dram_L2_queue_pop();
       }
-    } else if (!m_L2_icnt_queue->full()) {
-      if (mf->is_write() && mf->get_type() == WRITE_ACK)
-        mf->set_status(IN_PARTITION_L2_TO_ICNT_QUEUE,
-                       m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-      m_L2_icnt_queue->push(mf);
-      m_dram_L2_queue->pop();
     }
   }
 
@@ -501,7 +509,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
   if (!m_config->m_L2_config.disabled()) m_L2cache->cycle();
 
   // new L2 texture accesses and/or non-texture accesses
-  if (!m_L2_dram_queue->full() && !m_icnt_L2_queue->empty()) {
+  if (!L2_dram_queue_full() && !m_icnt_L2_queue->empty()) {
     mem_fetch *mf = m_icnt_L2_queue->top();
     if (!m_config->m_L2_config.disabled() &&
         ((m_config->m_L2_texure_only && mf->istexture()) ||
@@ -562,7 +570,7 @@ void memory_sub_partition::cache_cycle(unsigned cycle) {
       // L2 is disabled or non-texture access to texture-only L2
       mf->set_status(IN_PARTITION_L2_TO_DRAM_QUEUE,
                      m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
-      m_L2_dram_queue->push(mf);
+      L2_dram_queue_push(mf);
       m_icnt_L2_queue->pop();
     }
   }
@@ -585,21 +593,89 @@ bool memory_sub_partition::full(unsigned size) const {
 }
 
 bool memory_sub_partition::L2_dram_queue_empty() const {
+#ifdef MPC
+  return m_link->dnlink_empty(m_id);
+#else
   return m_L2_dram_queue->empty();
+#endif
 }
+
+std::set<mem_fetch *> L2_dram_set;
+std::set<mem_fetch *> dram_L2_set;
 
 class mem_fetch *memory_sub_partition::L2_dram_queue_top() const {
+#ifdef MPC
+  return m_link->dnlink_top(m_id);
+#else
   return m_L2_dram_queue->top();
+#endif
 }
 
-void memory_sub_partition::L2_dram_queue_pop() { m_L2_dram_queue->pop(); }
+void memory_sub_partition::L2_dram_queue_pop() {
+#ifdef MPC
+  mem_fetch *mf = m_link->dnlink_top(m_id);
+  auto it = L2_dram_set.find(mf);
+  assert (it != L2_dram_set.end());
+  L2_dram_set.erase(it);
+  m_link->dnlink_pop(m_id);
+#else
+  m_L2_dram_queue->pop();
+#endif
+}
+
+bool memory_sub_partition::L2_dram_queue_full()
+{
+#ifdef MPC
+  return m_link->dnlink_full(m_id);
+#else
+  return m_L2_dram_queue->full();
+#endif
+}
+
+void memory_sub_partition::L2_dram_queue_push(mem_fetch *mf)
+{
+#ifdef MPC
+  L2_dram_set.insert(mf);
+  m_link->dnlink_push(m_id, mf);
+#else
+  m_L2_dram_queue->push(mf);
+#endif
+}
+
+bool memory_sub_partition::dram_L2_queue_empty() const
+{
+#ifdef MPC
+  return m_link->uplink_empty(m_id);
+#else
+  return m_dram_L2_queue->empty();
+#endif
+}
+
+mem_fetch* memory_sub_partition::dram_L2_queue_top() const
+{
+#ifdef MPC
+  return m_link->uplink_top(m_id);
+#else
+  return m_dram_L2_queue->top();
+#endif
+}
+
 
 bool memory_sub_partition::dram_L2_queue_full() const {
+#ifdef MPC
+  return m_link->uplink_full(m_id);
+#else
   return m_dram_L2_queue->full();
+#endif
 }
 
 void memory_sub_partition::dram_L2_queue_push(class mem_fetch *mf) {
+#ifdef MPC
+  dram_L2_set.insert(mf);
+  m_link->uplink_push(m_id, mf);
+#else
   m_dram_L2_queue->push(mf);
+#endif
 }
 
 void memory_sub_partition::print_cache_stat(unsigned &accesses,

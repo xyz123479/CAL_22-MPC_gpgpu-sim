@@ -30,10 +30,14 @@
 #define MC_PARTITION_INCLUDED
 
 #include "../abstract_hardware_model.h"
+#include "memory_link.h"
 #include "dram.h"
 
 #include <list>
 #include <queue>
+
+// TODO: Pre-process from Makefile
+//#define MPC
 
 class mem_fetch;
 
@@ -62,7 +66,8 @@ class partition_mf_allocator : public mem_fetch_allocator {
 // - It does not connect directly with the interconnection network.
 class memory_partition_unit {
  public:
-  memory_partition_unit(unsigned partition_id, const memory_config *config,
+  memory_partition_unit(unsigned partition_id, class memory_link *link,
+                        const memory_config *config,
                         class memory_stats_t *stats, class gpgpu_sim *gpu);
   ~memory_partition_unit();
 
@@ -101,6 +106,7 @@ class memory_partition_unit {
 
  private:
   unsigned m_id;
+  class memory_link *m_link;
   const memory_config *m_config;
   class memory_stats_t *m_stats;
   class memory_sub_partition **m_sub_partition;
@@ -150,7 +156,8 @@ class memory_partition_unit {
 
 class memory_sub_partition {
  public:
-  memory_sub_partition(unsigned sub_partition_id, const memory_config *config,
+  memory_sub_partition(unsigned sub_partition_id, class memory_link *link,
+                       const memory_config *config,
                        class memory_stats_t *stats, class gpgpu_sim *gpu);
   ~memory_sub_partition();
 
@@ -174,8 +181,13 @@ class memory_sub_partition {
   bool L2_dram_queue_empty() const;
   class mem_fetch *L2_dram_queue_top() const;
   void L2_dram_queue_pop();
+  bool L2_dram_queue_full();
+  void L2_dram_queue_push(mem_fetch *mf);
 
   // interface to dram_L2_queue
+  bool dram_L2_queue_empty() const;
+  class mem_fetch* dram_L2_queue_top() const;
+  void dram_L2_queue_pop();
   bool dram_L2_queue_full() const;
   void dram_L2_queue_push(class mem_fetch *mf);
 
@@ -199,6 +211,7 @@ class memory_sub_partition {
  private:
   // data
   unsigned m_id;  //< the global sub partition ID
+  class memory_link *m_link;
   const memory_config *m_config;
   class l2_cache *m_L2cache;
   class L2interface *m_L2interface;
@@ -244,11 +257,11 @@ class L2interface : public mem_fetch_interface {
   virtual ~L2interface() {}
   virtual bool full(unsigned size, bool write) const {
     // assume read and write packets all same size
-    return m_unit->m_L2_dram_queue->full();
+    return m_unit->L2_dram_queue_full();
   }
   virtual void push(mem_fetch *mf) {
     mf->set_status(IN_PARTITION_L2_TO_DRAM_QUEUE, 0 /*FIXME*/);
-    m_unit->m_L2_dram_queue->push(mf);
+    m_unit->L2_dram_queue_push(mf);
   }
 
  private:
