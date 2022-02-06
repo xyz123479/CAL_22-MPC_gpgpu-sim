@@ -278,7 +278,9 @@ void dram_t::scheduler_fifo() {
     bkn = head_mrqq->bk;
     if (!bk[bkn]->mrq) {
 		dram_req_t *req = mrqq->pop();
+#ifdef TRAFFIC_DUMP
 		req->data->print_data();  // JIN
+#endif
 		bk[bkn]->mrq = req;
 	}
   }

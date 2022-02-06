@@ -234,7 +234,9 @@ void dram_t::scheduler_frfcfs() {
       req = sched->schedule(b, bk[b]->curr_row);
 
       if (req) {
+#ifdef TRAFFIC_DUMP
         req->data->print_data();  // JIN
+#endif
 
         req->data->set_status(IN_PARTITION_MC_BANK_ARB_QUEUE,
                               m_gpu->gpu_sim_cycle + m_gpu->gpu_tot_sim_cycle);
