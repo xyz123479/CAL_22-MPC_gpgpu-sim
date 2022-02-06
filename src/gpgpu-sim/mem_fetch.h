@@ -85,6 +85,7 @@ class mem_fetch {
   void set_data_size(unsigned size) { m_data_size = size; }
   unsigned get_ctrl_size() const { return m_ctrl_size; }
   unsigned size() const { return m_data_size + m_ctrl_size; }
+  unsigned get_chip_id() const { return m_raw_addr.chip; }
   bool is_write() { return m_access.is_write(); }
   void set_addr(new_addr_type addr) { m_access.set_addr(addr); }
   new_addr_type get_addr() const { return m_access.get_addr(); }
@@ -106,6 +107,8 @@ class mem_fetch {
   unsigned get_timestamp() const { return m_timestamp; }
   unsigned get_return_timestamp() const { return m_timestamp2; }
   unsigned get_icnt_receive_time() const { return m_icnt_receive_time; }
+
+  unsigned long long get_vstream_id() const;
 
   enum mem_access_type get_access_type() const { return m_access.get_type(); }
   const active_mask_t &get_access_warp_mask() const {

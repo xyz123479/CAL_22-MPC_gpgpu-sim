@@ -252,6 +252,14 @@ void mem_fetch::print_data() const {
   }
 }
 
+unsigned long long mem_fetch::get_vstream_id() const
+{
+  if (get_is_write())
+    return 0xFFFFFFFFFFFFFFFFull;
+  else
+    return 0;
+}
+
 void mem_fetch::set_status(enum mem_fetch_status status,
                            unsigned long long cycle) {
   m_status = status;
