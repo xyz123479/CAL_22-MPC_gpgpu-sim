@@ -35,6 +35,7 @@
 
 // JIN
 extern FILE *data_trace_output_FP;
+extern char *configPath;
 
 // extern time_t g_simulation_starttime;
 class gpgpu_context;

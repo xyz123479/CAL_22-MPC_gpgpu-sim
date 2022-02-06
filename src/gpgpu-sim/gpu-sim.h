@@ -228,6 +228,8 @@ class memory_config {
     m_n_mem_sub_partition = m_n_mem * m_n_sub_partition_per_memory_channel;
     fprintf(stdout, "Total number of memory sub partition = %u\n",
             m_n_mem_sub_partition);
+    // number of memory partitions per link
+    m_n_mem_link = (m_n_mem + 5)/6;
 
     m_address_mapping.init(m_n_mem, m_n_sub_partition_per_memory_channel);
     m_L2_config.init(&m_address_mapping);
@@ -255,9 +257,13 @@ class memory_config {
   unsigned m_n_sub_partition_per_memory_channel;
   unsigned m_n_mem_sub_partition;
   unsigned gpu_n_mem_per_ctrlr;
+  unsigned m_n_mem_link;
 
   unsigned rop_latency;
   unsigned dram_latency;
+
+  int compress_link;
+  double n_flit_per_mem_cycle;
 
   // DRAM parameters
 
@@ -431,6 +437,7 @@ class gpgpu_sim_config : public power_config,
  public:
   char *data_trace_output_path;
   char *kernel_trace_output_path;
+  char *mpc_parameter_path;
 
   friend class gpgpu_sim;
 };
@@ -484,6 +491,8 @@ class watchpoint_event {
   const ptx_thread_info *m_thread;
   const ptx_instruction *m_inst;
 };
+
+//typedef std::pair<new_addr_type, new_addr_type> addr_range;
 
 class gpgpu_sim : public gpgpu_t {
  public:
@@ -599,6 +608,9 @@ class gpgpu_sim : public gpgpu_t {
 
   std::list<unsigned> m_finished_kernel;
   // m_total_cta_launched == per-kernel count. gpu_tot_issued_cta == global
+
+  class memory_link **m_memory_link;
+  
   // count.
   unsigned long long m_total_cta_launched;
   unsigned long long gpu_tot_issued_cta;

@@ -42,6 +42,7 @@
 
 // JIN
 FILE *data_trace_output_FP;
+char *configPath;
 
 static int sg_argc = 3;
 static const char *sg_argv[] = {"", "-config", "gpgpusim.config"};
@@ -316,14 +317,15 @@ gpgpu_sim *gpgpu_context::gpgpu_ptx_sim_init_perf() {
   // JIN
   const char *output_path = the_gpgpusim->g_the_gpu_config->data_trace_output_path;
   if(output_path == NULL) {
-	data_trace_output_FP = NULL;
+    data_trace_output_FP = NULL;
   }
   else {
-	printf("%s\n", output_path);
+    printf("%s\n", output_path);
     data_trace_output_FP = fopen(output_path, "wb");
-	assert(data_trace_output_FP != NULL);
-	key_header_write(data_trace_output_FP);
+    assert(data_trace_output_FP != NULL);
+    key_header_write(data_trace_output_FP);
   }
+  configPath = the_gpgpusim->g_the_gpu_config->mpc_parameter_path;
 
   the_gpgpusim->g_the_gpu =
       new exec_gpgpu_sim(*(the_gpgpusim->g_the_gpu_config), this);

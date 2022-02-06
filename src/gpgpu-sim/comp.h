@@ -76,15 +76,15 @@ public:
     virtual unsigned compress(uint8_t* data);
 };
 //------------------------------------------------------------------------------
-extern std::string configPath;
-
+extern char *configPath;
 class MPCompressor : public compressor
 {
 public:
   /*** constructors ***/
   MPCompressor()
   {
-    parseConfig(configPath);
+    std::string configPathStr(configPath);
+    parseConfig(configPathStr);
 //    m_Stat = new VPCResult(m_LineSize, m_NumModules);
 //    m_Stat->CompressorName = "Contrastive Clustering Compressor";
   }

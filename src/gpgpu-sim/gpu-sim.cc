@@ -33,6 +33,8 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "comp.h"
+#include "memory_link.h"
 #include "zlib.h"
 
 #include "dram.h"
@@ -41,6 +43,7 @@
 #include "shader_trace.h"
 
 #include <time.h>
+#include <cstdio>
 #include "addrdec.h"
 #include "delayqueue.h"
 #include "dram.h"
@@ -215,6 +218,10 @@ void memory_config::reg_options(class OptionParser *opp) {
       "elimnate_rw_turnaround i.e set tWTR and tRTW = 0", "0");
   option_parser_register(opp, "-icnt_flit_size", OPT_UINT32, &icnt_flit_size,
                          "icnt_flit_size", "32");
+  option_parser_register(opp, "-compress_link", OPT_INT32, &compress_link,
+                         "Compress LLC <-> MEM Link", "0");
+  option_parser_register(opp, "-n_flit_per_mem_cycle", OPT_DOUBLE, &n_flit_per_mem_cycle,
+                         "The number of FLITS transfers per a memory cycle", "6.");
   m_address_mapping.addrdec_setoption(opp);
 }
 
@@ -658,6 +665,9 @@ void gpgpu_sim_config::reg_options(option_parser_t opp) {
                          "0");
 
   // JIN
+  option_parser_register(opp, "-mpc_parameter_path", OPT_CSTR,
+              &mpc_parameter_path,
+              "MPC parameter input path. Default: NULL", NULL);
   option_parser_register(opp, "-data_trace_output_path", OPT_CSTR,
 		  				&data_trace_output_path,
 						"Data trace output path. Default: NULL", NULL);
@@ -864,19 +874,33 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
   partiton_replys_in_parallel = 0;
   partiton_replys_in_parallel_total = 0;
 
+  m_memory_link = new memory_link*[m_memory_config->m_n_mem_link];
+  for (unsigned i = 0; i < m_memory_config->m_n_mem_link; i++) {
+    char link_name[32];
+    snprintf(link_name, 32, "link%01d", i);
+    if (m_memory_config->compress_link == 1 || m_memory_config->compress_link == 2) {
+      m_memory_link[i] = new compressed_memory_link(link_name, 19*m_memory_config->n_flit_per_mem_cycle, m_memory_config);
+      printf("Compressed memory link\n");
+    }
+    else {
+      m_memory_link[i] = new memory_link(link_name, 4*m_memory_config->n_flit_per_mem_cycle, m_memory_config);
+      printf("Memory link\n");
+    }
+  }
+
   m_memory_partition_unit =
-      new memory_partition_unit *[m_memory_config->m_n_mem];
+    new memory_partition_unit *[m_memory_config->m_n_mem];
   m_memory_sub_partition =
-      new memory_sub_partition *[m_memory_config->m_n_mem_sub_partition];
+    new memory_sub_partition *[m_memory_config->m_n_mem_sub_partition];
   for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
     m_memory_partition_unit[i] =
-        new memory_partition_unit(i, m_memory_config, m_memory_stats, this);
+      new memory_partition_unit(i, m_memory_link[i/6], m_memory_config, m_memory_stats, this);
     for (unsigned p = 0;
-         p < m_memory_config->m_n_sub_partition_per_memory_channel; p++) {
+        p < m_memory_config->m_n_sub_partition_per_memory_channel; p++) {
       unsigned submpid =
-          i * m_memory_config->m_n_sub_partition_per_memory_channel + p;
+        i * m_memory_config->m_n_sub_partition_per_memory_channel + p;
       m_memory_sub_partition[submpid] =
-          m_memory_partition_unit[i]->get_sub_partition(p);
+        m_memory_partition_unit[i]->get_sub_partition(p);
     }
   }
 
@@ -896,6 +920,20 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
   *active_sms = 0;
 
   last_liveness_message_time = 0;
+
+  if (m_memory_config->compress_link == 1)
+  {
+    g_comp = new CPACK();
+    printf("C-Pack is instantiated\n")
+  }
+  else if (m_memory_config->compress_link == 2)
+  {
+    g_comp = new MPC();
+  }
+  else
+  {
+    assert (false);
+  }
 
   // Jin: functional simulation for CDP
   m_functional_sim = false;
@@ -1079,6 +1117,10 @@ void gpgpu_sim::print_stats() {
     printf(
         "----------------------------END-of-Interconnect-DETAILS---------------"
         "----------\n");
+  }
+
+  for (unsigned i = 0; i < memory_link->m_n_mem_link; i++) {
+    m_memory_link[i]->print_stat();
   }
 }
 
@@ -1805,6 +1847,16 @@ void gpgpu_sim::cycle() {
   }
   partiton_replys_in_parallel += partiton_replys_in_parallel_per_cycle;
 
+  // up link
+  if (clock_mask && DRAM) {
+    for (unsigned i = 0; i < m_memory_config->m_n_mem_link; i++) {
+      // link interface: 45Gbps x 16-bit = 720Gbps = 90GBps
+      // A DRAM clock (924MHz) = 48 link clock(45GHz) = 96B (48 x 16-bit) = 6 FLIT
+      m_memory_link[i]->uplink_step(m_memory_config->n_flit_per_mem_cycle);
+    }
+  }
+  
+  // dram
   if (clock_mask & DRAM) {
     for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
       if (m_memory_config->simple_dram_model)
@@ -1822,6 +1874,16 @@ void gpgpu_sim::cycle() {
           m_power_stats->pwr_mem_stat->n_rd[CURRENT_STAT_IDX][i],
           m_power_stats->pwr_mem_stat->n_wr[CURRENT_STAT_IDX][i],
           m_power_stats->pwr_mem_stat->n_req[CURRENT_STAT_IDX][i]);
+    }
+  }
+
+  // down link
+  if (clock_mask && DRAM) {
+    for (unsigned i = 0; i < m_memory_config->m_n_mem_link; i++) {
+      // link interface: 45Gbps x 16-bit = 720Gbps = 90GBps
+      // A DRAM clock (924MHz) = 48 link clock(45GHz) = 96B (48 x 16-bit) = 6 FLIT
+      m_memory_link[i]->dnlink_step(m_memory_config->n_flit_per_mem_cycle);
+      
     }
   }
 
@@ -1988,10 +2050,13 @@ void gpgpu_sim::cycle() {
       }
     }
 
-    if (!(gpu_sim_cycle % 50000)) {
+    if (!(gpu_sim_cycle % 100000)) {
       // deadlock detection
       if (m_config.gpu_deadlock_detect && gpu_sim_insn == last_gpu_sim_insn) {
         gpu_deadlock = true;
+        for (unsigned i = 0; i < m_memory_config->m_n_mem_link; i++) {
+          m_memory_link[i]->print();
+        }
       } else {
         last_gpu_sim_insn = gpu_sim_insn;
       }
