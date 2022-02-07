@@ -923,12 +923,13 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
 
   if (m_memory_config->compress_link == 1)
   {
-    g_comp = new CPACK();
-    printf("C-Pack is instantiated\n")
+    g_comp = new CachePacker();
+    printf("C-Pack is instantiated\n");
   }
   else if (m_memory_config->compress_link == 2)
   {
-    g_comp = new MPC();
+    g_comp = new MPCompressor();
+    printf("MPC is instantiated\n");
   }
   else
   {
@@ -1119,7 +1120,7 @@ void gpgpu_sim::print_stats() {
         "----------\n");
   }
 
-  for (unsigned i = 0; i < memory_link->m_n_mem_link; i++) {
+  for (unsigned i = 0; i < m_memory_config->m_n_mem_link; i++) {
     m_memory_link[i]->print_stat();
   }
 }

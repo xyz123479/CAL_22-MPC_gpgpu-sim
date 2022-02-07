@@ -2,7 +2,6 @@
 #define __ALL_ZERO_MODULE_H__
 
 #include "CompressionModule.h"
-#include <bits/stdint-uintn.h>
 
 class AllZeroModule : public CompressionModule
 {

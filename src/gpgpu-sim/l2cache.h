@@ -37,7 +37,7 @@
 #include <queue>
 
 // TODO: Pre-process from Makefile
-//#define MPC
+#define MPC
 
 class mem_fetch;
 

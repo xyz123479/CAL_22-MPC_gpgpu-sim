@@ -411,7 +411,7 @@ unsigned MPCompressor::checkOtherPatterns(const int numStartingModule, std::vect
 }
 
 // CPACK ---------------------------------------------------------------------
-unsigned CPACK::compress(uint8_t *data)
+unsigned CachePacker::compress(uint8_t *data)
 {
   std::vector<uint8_t> dataLine(data, data + LSIZE/BYTE);
   unsigned uncompSize = LSIZE;
@@ -419,10 +419,10 @@ unsigned CPACK::compress(uint8_t *data)
 
 //  CPACKResult* m_stat = static_cast<CPACKResult*>(m_Stat);
 
-  for (int i = 0; i < dataLine.size() / WORDSIZE; i++)
+  for (int i = 0; i < dataLine.size() / CPACK_WORDSIZE; i++)
   {
-    uint8_t word[WORDSIZE] = {
-      dataLine[WORDSIZE * i], dataLine[WORDSIZE * i + 1], dataLine[WORDSIZE * i + 2], dataLine[WORDSIZE * i + 3]
+    uint8_t word[CPACK_WORDSIZE] = {
+      dataLine[CPACK_WORDSIZE * i], dataLine[CPACK_WORDSIZE * i + 1], dataLine[CPACK_WORDSIZE * i + 2], dataLine[CPACK_WORDSIZE * i + 3]
     };
 
     // check zero patterns
@@ -445,10 +445,10 @@ unsigned CPACK::compress(uint8_t *data)
 
     // check dictionary patterns
     bool found = false;
-    for (int j = 0; j < NUM_ENTRY; j++)
+    for (int j = 0; j < CPACK_NUM_ENTRY; j++)
     {
       uint8_t *currEntry = m_Dictionary[j];
-      uint8_t dictWord[WORDSIZE] = {
+      uint8_t dictWord[CPACK_WORDSIZE] = {
         currEntry[0], currEntry[1], currEntry[2], currEntry[3]
       };
 
@@ -491,8 +491,8 @@ unsigned CPACK::compress(uint8_t *data)
       currCSize += m_PatternLength[1];
       
       // add new pattern to dictionary
-      uint8_t *newEntry = new uint8_t[WORDSIZE];
-      for (int k = 0; k < WORDSIZE; k++)
+      uint8_t *newEntry = new uint8_t[CPACK_WORDSIZE];
+      for (int k = 0; k < CPACK_WORDSIZE; k++)
         newEntry[k] = word[k];
       m_Dictionary.push_back(newEntry);
       

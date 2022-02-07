@@ -66,7 +66,7 @@ typedef union CACHELINE_DATA {
 //------------------------------------------------------------------------------
 typedef unsigned long long virtual_stream_id;
 //------------------------------------------------------------------------------
-using namespace std;
+//using namespace std;
 
 //------------------------------------------------------------------------------
 class compressor {
@@ -126,10 +126,10 @@ private:
 #define CPACK_NUM_ENTRY (CPACK_DICTSIZE/CPACK_WORDSIZE)
 #define CPACK_NUM_PATTERNS 6
 
-class CPACK : public compressor
+class CachePacker : public compressor
 {
 public:
-  CPACK()
+  CachePacker()
   {
     // init dictionary
     for (int i = 0; i < CPACK_NUM_ENTRY; i++)

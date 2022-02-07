@@ -272,25 +272,29 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
     unsigned src_id = (m_cur_comp_id+i) % m_src_cnt;
     assert(m_ready_long_list[src_id].size()<=1);
     if (m_ready_long_list[src_id].size()>0) {
-      unsigned char buffer[128];
       unsigned comp_bit_size;
 
       // compress
       mem_fetch *mf = m_ready_long_list[src_id].front();
-      if (mf->get_data_size() == 128) {   // for now, compress only 128B blocks only
+//      unsigned req_size = mf->get_data_size();
+      unsigned req_size = 32;
+      unsigned char *req_data = (unsigned char *)malloc(sizeof(unsigned char) * req_size);
+      if (req_size == 32) {   // for now, compress only 32B blocks only
         static int cnt = 0;
-        g_the_gpu->get_global_memory()->read(mf->get_addr(), mf->get_data_size(), buffer);
-        comp_bit_size = g_comp->compress(mf->get_vstream_id(), buffer, mf->get_addr(), mf->get_data_size());
-        cnt += comp_bit_size;
-        if (cnt > 1024) {   // spread over two packets
-          cnt -= 1024;
-        } else {            // compacted packet --> TAG overhead
-          comp_bit_size += 11;
-        }
+        for (int j = 0; j < 4; j++) {
+          if (mf->mm_tpc[j] == -1 || mf->mm_sid[j] == -1 || mf->mm_wid[j] == -1) continue;
+          for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
+          comp_bit_size = g_comp->compress(req_data);
+          cnt += comp_bit_size;
+          if (cnt > 1024) {   // spread over two packets
+            cnt -= 1024;
+          } else {            // compacted packet --> TAG overhead
+            comp_bit_size += 9;
+          }
+        } 
       } else {
-        comp_bit_size = mf->get_data_size() * 8;
+          comp_bit_size = mf->get_data_size() * 8;
       }
-
       m_ready_compressed->push(mf, comp_bit_size);
       m_ready_long_list[src_id].pop();
     }
@@ -339,7 +343,7 @@ void compressed_up_link::step_link_push(unsigned n_flit)
 
   // 1. Read data
   while (n_sent_flit_cnt<n_flit) {
-    pair<mem_fetch *, unsigned> it = m_ready_compressed->top();
+    std::pair<mem_fetch *, unsigned> it = m_ready_compressed->top();
     if (it.first!=NULL) {
       //printf("TOP1 @%08d %p %d\n", gpu_sim_cycle, it.first, it.first->get_request_uid());
       //it.first->print(stdout, false);
@@ -384,17 +388,16 @@ void compressed_up_link::step_link_push(unsigned n_flit)
     unsigned src_id = (m_cur_comp_id+i) % m_src_cnt;
     assert(m_ready_long_list[src_id].size()<=1);
     if (m_ready_long_list[src_id].size()>0) {
-      unsigned char buffer[128];
       unsigned comp_bit_size;
 
       // compress
       mem_fetch *mf = m_ready_long_list[src_id].front();
-      if (mf->get_data_size() == 128) {
+      unsigned req_size = mf->get_data_size();
+      unsigned char *req_data = (unsigned char *)malloc(sizeof(unsigned char) * req_size);
+      if (req_size == 128) {
         static int cnt = 0;
-
-        g_the_gpu->get_global_memory()->read(mf->get_addr(), mf->get_data_size(), buffer);
-        comp_bit_size = g_comp->compress(mf->get_vstream_id(), buffer, mf->get_addr(), mf->get_data_size());
-
+        for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
+        comp_bit_size = g_comp->compress(req_data);
         cnt += comp_bit_size;
         if (cnt > 1024) {   // spread over two packets
           cnt -= 1024;
