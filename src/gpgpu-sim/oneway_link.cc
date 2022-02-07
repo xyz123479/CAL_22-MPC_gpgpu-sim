@@ -3,6 +3,9 @@
 
 extern gpgpu_sim* g_the_gpu;
 
+#define COMPRESSION_LATENCY 3
+#define DECOMPRESSION_LATENCY 4
+
 // -------------------------------------------------------------------------
 // Base oneway link interface
 // -------------------------------------------------------------------------
@@ -147,7 +150,8 @@ compressed_oneway_link::compressed_oneway_link(const char* nm, unsigned latency,
 {
   m_ready_long_list = new std::queue<mem_fetch *>[src_cnt];
   m_ready_short_list = new std::queue<mem_fetch *>[src_cnt];
-  m_ready_decompressed = new compressed_link_delay_queue(nm, 4000, 10);    // 10 cycle latency
+  // decompression latency
+  m_ready_decompressed = new compressed_link_delay_queue(nm, 4000, DECOMPRESSION_LATENCY);
 
   is_current_long = false;
   m_cur_comp_id = 0;
@@ -196,7 +200,8 @@ bool compressed_oneway_link::push(mem_fetch *mf,
 compressed_dn_link::compressed_dn_link(const char* nm, unsigned latency, unsigned src_cnt, unsigned dst_cnt)
   : compressed_oneway_link(nm, latency, src_cnt, dst_cnt)
 {
-  m_ready_compressed = new compressed_link_delay_queue(nm, 4000, 1);
+  // compression latency
+  m_ready_compressed = new compressed_link_delay_queue(nm, 4000, COMPRESSION_LATENCY);
 }
 
 void compressed_dn_link::step_link_push(unsigned n_flit)
@@ -330,7 +335,8 @@ void compressed_dn_link::step_link_pop(unsigned n_flit)
 compressed_up_link::compressed_up_link(const char* nm, unsigned latency, unsigned src_cnt, unsigned dst_cnt)
   : compressed_oneway_link(nm, latency, src_cnt, dst_cnt)
 {
-  m_ready_compressed = new compressed_link_delay_queue(nm, 4000, 1);
+  // compression latency
+  m_ready_compressed = new compressed_link_delay_queue(nm, 4000, COMPRESSION_LATENCY);
 }
 
 void compressed_up_link::step_link_push(unsigned n_flit)
