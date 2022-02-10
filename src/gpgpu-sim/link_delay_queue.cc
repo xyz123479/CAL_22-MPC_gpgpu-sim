@@ -1,16 +1,17 @@
 #include "link_delay_queue.h"
 
-extern unsigned long long  gpu_sim_cycle;
-extern unsigned long long  gpu_tot_sim_cycle;
+//extern unsigned long long  gpu_sim_cycle;
+//extern unsigned long long  gpu_tot_sim_cycle;
+
+//extern gpgpu_sim *g_the_gpu;
 
 // link_delay_queue
-link_delay_queue::link_delay_queue(const char* nm, unsigned int size, unsigned int latency)
+link_delay_queue::link_delay_queue(const char* nm, unsigned int size, unsigned int latency, 
+                                   gpgpu_context *ctx)
+  : m_name(nm), m_size(size), m_latency(latency), m_ctx(ctx)
 {
   assert(latency);
 
-  m_name = nm;
-  m_size = size;
-  m_latency = latency;
   m_arr_size = size + latency;
 
   m_data_array = new mem_fetch*[m_arr_size];
@@ -55,7 +56,7 @@ mem_fetch* link_delay_queue::pop()
 
 void link_delay_queue::print() const
 {
-  printf("@%8lld %s : %d, %d\n", gpu_sim_cycle, m_name, m_rd_ptr, m_wr_ptr);
+  printf("@%8lld %s : %d, %d\n", m_ctx->the_gpgpusim->g_the_gpu->gpu_sim_cycle, m_name, m_rd_ptr, m_wr_ptr);
 }
 
 const char* link_delay_queue::get_name()
@@ -64,13 +65,12 @@ const char* link_delay_queue::get_name()
 }
 
 // compressed_link_delay_queue
-compressed_link_delay_queue::compressed_link_delay_queue(const char* nm, unsigned int size, unsigned int latency)
+compressed_link_delay_queue::compressed_link_delay_queue(const char* nm, unsigned int size, unsigned int latency,
+                                                         gpgpu_context *ctx)
+  : m_name(nm), m_size(size), m_latency(latency), m_ctx(ctx)
 {
   assert(latency);
 
-  m_name = nm;
-  m_size = size;
-  m_latency = latency;
   m_arr_size = size + latency;
 
   m_data_array = new mem_fetch*[m_arr_size];
@@ -101,7 +101,8 @@ void compressed_link_delay_queue::push(mem_fetch* mf, unsigned size)
   //}
   m_data_array[m_wr_ptr] = mf;
   m_size_array[m_wr_ptr] = size;
-  m_time_array[m_wr_ptr] = gpu_sim_cycle + gpu_tot_sim_cycle;
+  m_time_array[m_wr_ptr] = m_ctx->the_gpgpusim->g_the_gpu->gpu_sim_cycle
+    + m_ctx->the_gpgpusim->g_the_gpu->gpu_tot_sim_cycle;
   m_wr_ptr = (m_wr_ptr+1) % m_arr_size;
 }
 
@@ -111,7 +112,8 @@ std::pair<mem_fetch *, unsigned> compressed_link_delay_queue::top()
   unsigned size = 0;
   if (mf!=NULL) {
     unsigned long long time = m_time_array[m_rd_ptr];
-    if ((gpu_sim_cycle+gpu_tot_sim_cycle) > (time + m_latency)) {
+    if ((m_ctx->the_gpgpusim->g_the_gpu->gpu_sim_cycle
+         +  m_ctx->the_gpgpusim->g_the_gpu->gpu_tot_sim_cycle) > (time + m_latency)) {
       size = m_size_array[m_rd_ptr];
     } else {
       mf = NULL;
@@ -128,7 +130,7 @@ void compressed_link_delay_queue::pop()
 
 void compressed_link_delay_queue::print() const
 {
-  printf("@%8lld %s : %d, %d\n", gpu_sim_cycle, m_name, m_rd_ptr, m_wr_ptr);
+  printf("@%8lld %s : %d, %d\n", m_ctx->the_gpgpusim->g_the_gpu->gpu_sim_cycle, m_name, m_rd_ptr, m_wr_ptr);
 }
 
 const char* compressed_link_delay_queue::get_name()

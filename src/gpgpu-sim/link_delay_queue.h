@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <queue>
 #include <set>
+#include "../../libcuda/gpgpu_context.h"
+#include "../gpgpusim_entrypoint.h"
 #include "../abstract_hardware_model.h"
 #include "../cuda-sim/memory.h"
 #include "gpu-sim.h"
@@ -13,7 +15,8 @@
 
 class link_delay_queue {
 public:
-  link_delay_queue(const char* nm, unsigned int size, unsigned int latency);
+  link_delay_queue(const char* nm, unsigned int size, unsigned int latency,
+                   gpgpu_context *ctx);
   ~link_delay_queue();
 
   // methods
@@ -38,12 +41,15 @@ protected:
     mem_fetch **m_data_array;
     bool *m_is_head_array;
     bool *m_is_tail_array;
+
+    class gpgpu_context *m_ctx;
 };
 
 
 class compressed_link_delay_queue {
 public:
-    compressed_link_delay_queue(const char* nm, unsigned int size, unsigned int latency);
+    compressed_link_delay_queue(const char* nm, unsigned int size, unsigned int latency,
+                                gpgpu_context *ctx);
     ~compressed_link_delay_queue();
 
     // methods
@@ -69,6 +75,8 @@ protected:
     mem_fetch **m_data_array;
     unsigned *m_size_array;
     unsigned long long *m_time_array;
+
+    class gpgpu_context *m_ctx;
 };
 
 #endif

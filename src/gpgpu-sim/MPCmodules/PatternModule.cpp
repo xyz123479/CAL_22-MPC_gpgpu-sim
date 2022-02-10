@@ -1,7 +1,7 @@
 #include "PatternModule.h"
 #include "PredCompModule.h"
 #include "ScanModule.h"
-#include <bits/stdint-uintn.h>
+//#include <bits/stdint-uintn.h>
 
 // Uncompressed pattern check module
 compSizeList& UncompressedPatternModule::Compress(Binary &scanned, compSizeList &sizeList)

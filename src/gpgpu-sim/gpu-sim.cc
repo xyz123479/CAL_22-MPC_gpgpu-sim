@@ -879,11 +879,15 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
     char link_name[32];
     snprintf(link_name, 32, "link%01d", i);
     if (m_memory_config->compress_link == 1 || m_memory_config->compress_link == 2) {
-      m_memory_link[i] = new compressed_memory_link(link_name, 1*m_memory_config->n_flit_per_mem_cycle, m_memory_config);
+      m_memory_link[i] = new compressed_memory_link(link_name,
+          1*m_memory_config->n_flit_per_mem_cycle,
+          m_memory_config, ctx);
       printf("Compressed memory link\n");
     }
     else {
-      m_memory_link[i] = new memory_link(link_name, 1*m_memory_config->n_flit_per_mem_cycle, m_memory_config);
+      m_memory_link[i] = new memory_link(link_name,
+          1*m_memory_config->n_flit_per_mem_cycle,
+          m_memory_config, ctx);
       printf("Memory link\n");
     }
   }
@@ -933,7 +937,8 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
   }
   else
   {
-    assert (false);
+    printf("ERROR: Compressor option is not specified\n");
+    exit(1);
   }
 
   // Jin: functional simulation for CDP

@@ -214,6 +214,7 @@ endif
 TFLAGS += -g3 -fPIC
 
 gpgpu-sim_uarch: makedirs cuda-sim
+	$(MAKE) -C ./src/gpgpu-sim/MPCmodules/
 	$(MAKE) -C ./src/gpgpu-sim/ depend
 	$(MAKE) -C ./src/gpgpu-sim/
 

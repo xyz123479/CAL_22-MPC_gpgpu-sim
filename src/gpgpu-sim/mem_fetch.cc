@@ -46,7 +46,7 @@
 extern FILE *data_trace_output_FP;
 extern int global_kernel_id;
 
-extern gpgpu_context *ctx;
+//extern gpgpu_context *ctx;
 
 unsigned mem_fetch::sm_next_mf_request_uid = 1;
 

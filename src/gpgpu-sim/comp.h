@@ -73,7 +73,7 @@ class compressor {
 public:
     compressor() {}
 
-    virtual unsigned compress(uint8_t* data);
+    virtual unsigned compress(uint8_t* data) = 0;
 };
 //------------------------------------------------------------------------------
 extern char *configPath;

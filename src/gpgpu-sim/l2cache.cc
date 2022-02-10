@@ -660,6 +660,18 @@ mem_fetch* memory_sub_partition::dram_L2_queue_top() const
 #endif
 }
 
+void memory_sub_partition::dram_L2_queue_pop()
+{
+#ifdef MPC
+  mem_fetch *mf = m_link->uplink_top(m_id);
+  auto it = dram_L2_set.find(mf);
+  assert (it != dram_L2_set.end());
+  dram_L2_set.erase(it);
+  return m_link->uplink_pop(m_id);
+#else
+  m_dram_L2_queue->pop();
+#endif
+}
 
 bool memory_sub_partition::dram_L2_queue_full() const {
 #ifdef MPC

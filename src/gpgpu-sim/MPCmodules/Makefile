@@ -41,7 +41,7 @@ ifeq ($(TRACE),1)
 	CXXFLAGS += -DTRACING_ON=1
 endif
 
-include ../../version_detection.mk
+include ../../../version_detection.mk
 
 ifeq ($(GNUC_CPP0X), 1)
     CXXFLAGS += -std=c++0x
@@ -68,7 +68,7 @@ OEXT = o
 
 OUTPUT_DIR=$(SIM_OBJ_FILES_DIR)/gpgpu-sim
 
-SRCS = $(shell ls *.cc)
+SRCS = $(shell ls *.cpp)
 
 EXCLUDES = 
 
@@ -78,7 +78,7 @@ endif
 
 CSRCS = $(filter-out $(EXCLUDES), $(SRCS))
 
-OBJS = $(CSRCS:%.cc=$(OUTPUT_DIR)/%.$(OEXT))
+OBJS = $(CSRCS:%.cpp=$(OUTPUT_DIR)/%.$(OEXT))
 
 libgpu_uarch_sim.a:$(OBJS)
 	ar rcs  $(OUTPUT_DIR)/libgpu_uarch_sim.a $(OBJS)
@@ -89,8 +89,8 @@ depend:
 	touch $(OUTPUT_DIR)/Makefile.makedepend
 	makedepend -f$(OUTPUT_DIR)/Makefile.makedepend -p$(OUTPUT_DIR)/ $(CSRCS) 2> /dev/null
 
-$(OUTPUT_DIR)/%.$(OEXT): %.cc
-	$(CPP) $(OPTFLAGS) $(CXXFLAGS) $(POWER_FLAGS) -o $(OUTPUT_DIR)/$*.$(OEXT) -c $*.cc
+$(OUTPUT_DIR)/%.$(OEXT): %.cpp
+	$(CPP) $(OPTFLAGS) $(CXXFLAGS) $(POWER_FLAGS) -o $(OUTPUT_DIR)/$*.$(OEXT) -c $*.cpp
 
 clean:
 	rm -f *.o core *~ *.a 
