@@ -6,8 +6,9 @@
 //extern gpgpu_sim *g_the_gpu;
 
 // link_delay_queue
-link_delay_queue::link_delay_queue(const char* nm, unsigned int size, unsigned int latency, 
-                                   gpgpu_context *ctx)
+link_delay_queue::link_delay_queue(const char* nm,
+    unsigned int size, unsigned int latency, 
+    gpgpu_context *ctx)
   : m_name(nm), m_size(size), m_latency(latency), m_ctx(ctx)
 {
   assert(latency);
@@ -65,8 +66,9 @@ const char* link_delay_queue::get_name()
 }
 
 // compressed_link_delay_queue
-compressed_link_delay_queue::compressed_link_delay_queue(const char* nm, unsigned int size, unsigned int latency,
-                                                         gpgpu_context *ctx)
+compressed_link_delay_queue::compressed_link_delay_queue(const char* nm,
+    unsigned int size, unsigned int latency,
+    gpgpu_context *ctx)
   : m_name(nm), m_size(size), m_latency(latency), m_ctx(ctx)
 {
   assert(latency);

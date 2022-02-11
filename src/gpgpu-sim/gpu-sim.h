@@ -229,7 +229,7 @@ class memory_config {
     fprintf(stdout, "Total number of memory sub partition = %u\n",
             m_n_mem_sub_partition);
     // number of memory partitions per link
-    m_n_mem_link = (m_n_mem + 5)/6;
+    m_n_mem_link = (m_n_mem + (m_n_mem_per_link-1))/m_n_mem_per_link;
 
     m_address_mapping.init(m_n_mem, m_n_sub_partition_per_memory_channel);
     m_L2_config.init(&m_address_mapping);
@@ -257,13 +257,22 @@ class memory_config {
   unsigned m_n_sub_partition_per_memory_channel;
   unsigned m_n_mem_sub_partition;
   unsigned gpu_n_mem_per_ctrlr;
-  unsigned m_n_mem_link;
 
   unsigned rop_latency;
   unsigned dram_latency;
 
-  int compress_link;
+  // JIN
+  // link parameters
+  unsigned m_n_mem_per_link;
+  unsigned m_n_mem_link;
   double n_flit_per_mem_cycle;
+  unsigned link_latency;
+
+  // JIN
+  // compressor parameters
+  int compress_link;
+  unsigned comp_latency;
+  unsigned decomp_latency;
 
   // DRAM parameters
 

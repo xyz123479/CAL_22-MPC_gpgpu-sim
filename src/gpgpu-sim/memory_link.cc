@@ -1,20 +1,25 @@
 #include "memory_link.h"
 
-memory_link::memory_link(const char* nm, unsigned int latency, const struct memory_config *config,
-                         gpgpu_context *ctx)
+memory_link::memory_link(const char* nm,
+    unsigned link_latency,
+    const struct memory_config *config,
+    gpgpu_context *ctx)
   : m_config(config), m_ctx(ctx)
 {
   strcpy(m_nm, nm);
 
   char link_nm[256];
   sprintf(link_nm, "%s.dn", nm);
-  m_dn = new oneway_link(link_nm, latency,
+  m_dn = new oneway_link(link_nm,
+      link_latency,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       ctx);
   sprintf(link_nm, "%s.up", nm);
-  m_up = new oneway_link(link_nm, latency,
-      config->m_n_mem * config->m_n_sub_partition_per_memory_channel, config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
+  m_up = new oneway_link(link_nm,
+      link_latency,
+      config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
+      config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       ctx);
 
   dnlink_remainder = 0.;
@@ -95,22 +100,43 @@ void memory_link::print_stat() const
   m_up->print_stat();
 }
 
+//compressed_memory_link::compressed_memory_link(const char* nm, unsigned int latency, const struct memory_config *config,
+//                                               gpgpu_context *ctx)
+//  : memory_link(nm, 1, config, ctx)
+//{
+//  strcpy(m_nm, nm);
+//
+//  char link_nm[256];
+//  sprintf(link_nm, "%s.dn", nm);
+//  m_dn = new compressed_dn_link(link_nm, latency,
+//      config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
+//      config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
+//      ctx);
+//  sprintf(link_nm, "%s.up", nm);
+//  m_up = new compressed_up_link(link_nm, latency,
+//      config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
+//      config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
+//      ctx);
+//}
 
-
-compressed_memory_link::compressed_memory_link(const char* nm, unsigned int latency, const struct memory_config *config,
-                                               gpgpu_context *ctx)
-  : memory_link(nm, latency, config, ctx)
+compressed_memory_link::compressed_memory_link(const char* nm,
+    unsigned link_latency, unsigned comp_latency, unsigned decomp_latency,
+    const struct memory_config *config,
+    gpgpu_context *ctx)
+  : memory_link(nm, 1, config, ctx)
 {
   strcpy(m_nm, nm);
-
+  
   char link_nm[256];
   sprintf(link_nm, "%s.dn", nm);
-  m_dn = new compressed_dn_link(link_nm, latency,
+  m_dn = new compressed_dn_link(link_nm,
+      link_latency, comp_latency,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       ctx);
   sprintf(link_nm, "%s.up", nm);
-  m_up = new compressed_up_link(link_nm, latency,
+  m_up = new compressed_up_link(link_nm,
+      link_latency, decomp_latency,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       ctx);

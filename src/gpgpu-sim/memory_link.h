@@ -14,8 +14,10 @@
 
 class memory_link {
 public:
-  memory_link(const char* nm, unsigned int latency, const struct memory_config *config,
-              gpgpu_context *ctx);
+  memory_link(const char* nm,
+      unsigned link_latency,
+      const struct memory_config *config,
+      gpgpu_context *ctx);
   ~memory_link();
 
   // methods related to the down link
@@ -52,8 +54,13 @@ protected:
 
 class compressed_memory_link : public memory_link {
 public:
-  compressed_memory_link(const char* nm, unsigned int latency, const struct memory_config *config,
-                         gpgpu_context *ctx);
+//  compressed_memory_link(const char* nm, unsigned int latency,
+//                         const struct memory_config *config,
+//                         gpgpu_context *ctx);
+  compressed_memory_link(const char* nm,
+     unsigned link_latency, unsigned comp_latency, unsigned decomp_latency,
+     const struct memory_config *config,
+     gpgpu_context *ctx);
 };
 
 #endif

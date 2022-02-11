@@ -2,18 +2,23 @@
 
 //extern gpgpu_sim* g_the_gpu;
 
-#define COMPRESSION_LATENCY 3
-#define DECOMPRESSION_LATENCY 4
+//#define COMPRESSION_LATENCY 3
+//#define DECOMPRESSION_LATENCY 4
+#define FLIT_SIZE 128     // max packet length in terms of FLIT
+#define HT_OVERHEAD 128   // head+tail overheads
+#define QUEUE_SIZE 4000
 
 // -------------------------------------------------------------------------
 // Base oneway link interface
 // -------------------------------------------------------------------------
-oneway_link::oneway_link(const char* nm, unsigned latency, unsigned src_cnt, unsigned dst_cnt,
-                         gpgpu_context *ctx)
+oneway_link::oneway_link(const char* nm,
+    unsigned link_latency,
+    unsigned src_cnt, unsigned dst_cnt,
+    gpgpu_context *ctx)
   : m_src_cnt(src_cnt), m_dst_cnt(dst_cnt), m_ctx(ctx)
 {
   strcpy(m_name, nm);
-  queue = new link_delay_queue(nm, 4000, latency, ctx);   // Queue of FLITs
+  queue = new link_delay_queue(nm, QUEUE_SIZE, link_latency, ctx);   // Queue of FLITs
   m_ready_list = new std::queue<mem_fetch *>[m_src_cnt];
   m_complete_list = new std::queue<mem_fetch *>[m_dst_cnt];
 
@@ -90,7 +95,7 @@ void oneway_link::step_link_push(unsigned n_flit)
         if ((mf->get_type()==READ_REQUEST)||(mf->get_type()==WRITE_ACK)) {
           m_packet_bit_size = HT_OVERHEAD;
         } else if ((mf->get_type()==WRITE_REQUEST)||(mf->get_type()==READ_REPLY)) {
-          m_packet_bit_size = HT_OVERHEAD + mf->get_data_size()*8;
+          m_packet_bit_size = HT_OVERHEAD + mf->get_data_size()*BYTE;
         } else {
           assert(0);
         }
@@ -145,14 +150,15 @@ void oneway_link::print_stat() const
 // -------------------------------------------------------------------------
 // Compressed oneway link interface
 // -------------------------------------------------------------------------
-compressed_oneway_link::compressed_oneway_link(const char* nm, unsigned latency, unsigned src_cnt, unsigned dst_cnt,
-                                               gpgpu_context *ctx)
-  : oneway_link(nm, latency, src_cnt, dst_cnt, ctx)
+compressed_oneway_link::compressed_oneway_link(const char* nm,
+    unsigned link_latency,
+    unsigned src_cnt, unsigned dst_cnt,
+    gpgpu_context *ctx)
+  : oneway_link(nm, link_latency, src_cnt, dst_cnt, ctx)
 {
   m_ready_long_list = new std::queue<mem_fetch *>[src_cnt];
   m_ready_short_list = new std::queue<mem_fetch *>[src_cnt];
-  // decompression latency
-  m_ready_decompressed = new compressed_link_delay_queue(nm, 4000, DECOMPRESSION_LATENCY, ctx);
+//  m_ready_decompressed = new compressed_link_delay_queue(nm, , DECOMPRESSION_LATENCY, ctx);
 
   is_current_long = false;
   m_cur_comp_id = 0;
@@ -198,12 +204,14 @@ bool compressed_oneway_link::push(mem_fetch *mf,
 }
 
 
-compressed_dn_link::compressed_dn_link(const char* nm, unsigned latency, unsigned src_cnt, unsigned dst_cnt,
-                                       gpgpu_context *ctx)
-  : compressed_oneway_link(nm, latency, src_cnt, dst_cnt, ctx)
+compressed_dn_link::compressed_dn_link(const char* nm,
+    unsigned link_latency, unsigned comp_latency,
+    unsigned src_cnt, unsigned dst_cnt,
+    gpgpu_context *ctx)
+  : compressed_oneway_link(nm, link_latency, src_cnt, dst_cnt, ctx)
 {
   // compression latency
-  m_ready_compressed = new compressed_link_delay_queue(nm, 4000, COMPRESSION_LATENCY, ctx);
+  m_ready_compressed = new compressed_link_delay_queue(nm, QUEUE_SIZE, comp_latency, ctx);
 }
 
 void compressed_dn_link::step_link_push(unsigned n_flit)
@@ -293,14 +301,14 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
           for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
           comp_bit_size = g_comp->compress(req_data);
           cnt += comp_bit_size;
-          if (cnt > 1024) {   // spread over two packets
-            cnt -= 1024;
+          if (cnt > FLIT_SIZE * BYTE) {   // spread over two packets
+            cnt -= FLIT_SIZE * BYTE;
           } else {            // compacted packet --> TAG overhead
-            comp_bit_size += 9;
+            comp_bit_size += 9;   // 2^(8+1), log2(32B) + additional 1b
           }
         } 
       } else {
-          comp_bit_size = mf->get_data_size() * 8;
+          comp_bit_size = mf->get_data_size() * BYTE;
       }
       m_ready_compressed->push(mf, comp_bit_size);
       m_ready_long_list[src_id].pop();
@@ -334,12 +342,14 @@ void compressed_dn_link::step_link_pop(unsigned n_flit)
 }
 
 
-compressed_up_link::compressed_up_link(const char* nm, unsigned latency, unsigned src_cnt, unsigned dst_cnt,
-                                       gpgpu_context *ctx)
-  : compressed_oneway_link(nm, latency, src_cnt, dst_cnt, ctx)
+compressed_up_link::compressed_up_link(const char* nm,
+    unsigned link_latency, unsigned decomp_latency,
+    unsigned src_cnt, unsigned dst_cnt,
+    gpgpu_context *ctx)
+  : compressed_oneway_link(nm, link_latency, src_cnt, dst_cnt, ctx)
 {
-  // compression latency
-  m_ready_compressed = new compressed_link_delay_queue(nm, 4000, COMPRESSION_LATENCY, ctx);
+  // decompression latency
+  m_ready_compressed = new compressed_link_delay_queue(nm, QUEUE_SIZE, decomp_latency, ctx);
 }
 
 void compressed_up_link::step_link_push(unsigned n_flit)
@@ -408,13 +418,13 @@ void compressed_up_link::step_link_push(unsigned n_flit)
         for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
         comp_bit_size = g_comp->compress(req_data);
         cnt += comp_bit_size;
-        if (cnt > 1024) {   // spread over two packets
-          cnt -= 1024;
+        if (cnt > FLIT_SIZE * BYTE) {   // spread over two packets
+          cnt -= FLIT_SIZE * BYTE;
         } else {            // compacted packet --> TAG overhead
-          comp_bit_size += 11;
+          comp_bit_size += 11; // 2^(10+1), log2(128B) + additional 1b
         }
       } else {
-        comp_bit_size = mf->get_data_size() * 8;
+        comp_bit_size = mf->get_data_size() * BYTE;
       }
 
       //printf("PUSH @%08d %p %d\n", gpu_sim_cycle, mf, mf->get_request_uid());

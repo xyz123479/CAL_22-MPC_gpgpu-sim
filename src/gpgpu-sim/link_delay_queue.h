@@ -15,8 +15,9 @@
 
 class link_delay_queue {
 public:
-  link_delay_queue(const char* nm, unsigned int size, unsigned int latency,
-                   gpgpu_context *ctx);
+  link_delay_queue(const char* nm,
+      unsigned int size, unsigned int latency,
+      gpgpu_context *ctx);
   ~link_delay_queue();
 
   // methods
@@ -48,8 +49,9 @@ protected:
 
 class compressed_link_delay_queue {
 public:
-    compressed_link_delay_queue(const char* nm, unsigned int size, unsigned int latency,
-                                gpgpu_context *ctx);
+    compressed_link_delay_queue(const char* nm,
+        unsigned int size, unsigned int latency,
+        gpgpu_context *ctx);
     ~compressed_link_delay_queue();
 
     // methods

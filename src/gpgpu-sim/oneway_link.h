@@ -12,8 +12,10 @@
 // -------------------------------------------------------------------------
 class oneway_link {
 public:
-  oneway_link(const char* nm, unsigned latency, unsigned src_cnt, unsigned dst_cnt,
-              gpgpu_context *ctx);
+  oneway_link(const char* nm,
+      unsigned link_latency,
+      unsigned src_cnt, unsigned dst_cnt,
+      gpgpu_context *ctx);
   ~oneway_link();
 
   virtual void push(unsigned src_id, mem_fetch *mf);
@@ -32,8 +34,8 @@ public:
 
   unsigned get_dst_id(mem_fetch *mf);
 protected:
-  static const unsigned FLIT_SIZE = 128;      // max packet length in terms of FLIP
-  static const unsigned HT_OVERHEAD = 128;    // head+tail overheads
+//  static const unsigned FLIT_SIZE = 128;      // max packet length in terms of FLIT
+//  static const unsigned HT_OVERHEAD = 128;    // head+tail overheads
   //static const unsigned MAX_FLIT_CNT = 17;
   //static const unsigned WIDTH = 32;
 
@@ -58,8 +60,10 @@ protected:
 // -------------------------------------------------------------------------
 class compressed_oneway_link : public oneway_link {
 public:
-  compressed_oneway_link(const char* nm, unsigned latency, unsigned src_cnt, unsigned dst_cnt,
-                        gpgpu_context *ctx);
+  compressed_oneway_link(const char* nm,
+      unsigned link_latency,
+      unsigned src_cnt, unsigned dst_cnt,
+      gpgpu_context *ctx);
 
   void push(unsigned mem_id, mem_fetch *mf);
   bool push(mem_fetch *mf, unsigned packet_bit_size, unsigned& n_sent_flit_cnt, unsigned n_flit, bool update = true);
@@ -68,7 +72,7 @@ public:
   std::queue<mem_fetch *> *m_ready_long_list;
   std::queue<mem_fetch *> *m_ready_short_list;
   compressed_link_delay_queue *m_ready_compressed;
-  compressed_link_delay_queue *m_ready_decompressed;
+//  compressed_link_delay_queue *m_ready_decompressed;
   unsigned m_cur_comp_id;
   bool is_current_long;
   unsigned m_leftover;
@@ -76,8 +80,10 @@ public:
 
 class compressed_dn_link : public compressed_oneway_link {
 public:
-  compressed_dn_link(const char* nm, unsigned latency, unsigned src_cnt, unsigned dst_cnt,
-                     gpgpu_context *ctx);
+  compressed_dn_link(const char* nm,
+      unsigned link_latency, unsigned comp_latency,
+      unsigned src_cnt, unsigned dst_cnt,
+      gpgpu_context *ctx);
 
   void step_link_push(unsigned n_flit);
   void step_link_pop(unsigned n_flit);
@@ -85,8 +91,10 @@ public:
 
 class compressed_up_link : public compressed_oneway_link {
 public:
-  compressed_up_link(const char* nm, unsigned latency, unsigned src_cnt, unsigned dst_cnt, 
-                     gpgpu_context *ctx);
+  compressed_up_link(const char* nm,
+      unsigned link_latency, unsigned decomp_latency,
+      unsigned src_cnt, unsigned dst_cnt, 
+      gpgpu_context *ctx);
 
   void step_link_push(unsigned n_flit);
 };

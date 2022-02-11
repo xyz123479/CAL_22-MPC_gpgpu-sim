@@ -218,10 +218,23 @@ void memory_config::reg_options(class OptionParser *opp) {
       "elimnate_rw_turnaround i.e set tWTR and tRTW = 0", "0");
   option_parser_register(opp, "-icnt_flit_size", OPT_UINT32, &icnt_flit_size,
                          "icnt_flit_size", "32");
-  option_parser_register(opp, "-compress_link", OPT_INT32, &compress_link,
-                         "Compress LLC <-> MEM Link", "0");
+
+  // JIN: link params
+  option_parser_register(opp, "-m_n_mem_per_link", OPT_INT32, &m_n_mem_per_link,
+                         "The number of memory modules per link", "6");
+  // num flits to modify bandwidth
   option_parser_register(opp, "-n_flit_per_mem_cycle", OPT_DOUBLE, &n_flit_per_mem_cycle,
                          "The number of FLITS transfers per a memory cycle", "6.");
+  option_parser_register(opp, "-link_latency", OPT_INT32, &link_latency,
+                        "Link latency", "6");
+  // JIN: comp params
+  option_parser_register(opp, "-compress_link", OPT_INT32, &compress_link,
+                         "Compress LLC <-> MEM Link, 0: No comp, 1: C-Pack, 2: MPC", "0");
+  option_parser_register(opp, "-compression_latency", OPT_INT32, &comp_latency,
+                         "Copmression latency", "3");
+  option_parser_register(opp, "-decompression_latency", OPT_INT32, &decomp_latency,
+                         "Decompression latency", "4");
+
   m_address_mapping.addrdec_setoption(opp);
 }
 
@@ -874,21 +887,27 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
   partiton_replys_in_parallel = 0;
   partiton_replys_in_parallel_total = 0;
 
+  // memory link : array of pointers
+  unsigned link_latency = m_memory_config->n_flit_per_mem_cycle;
   m_memory_link = new memory_link*[m_memory_config->m_n_mem_link];
   for (unsigned i = 0; i < m_memory_config->m_n_mem_link; i++) {
     char link_name[32];
     snprintf(link_name, 32, "link%01d", i);
-    if (m_memory_config->compress_link == 1 || m_memory_config->compress_link == 2) {
+    if (m_memory_config->compress_link == 0) {
+      m_memory_link[i] = new memory_link(link_name,
+          link_latency,
+          m_memory_config, ctx);
+      printf("Memory link\n");
+    }
+    else if (m_memory_config->compress_link == 1 || m_memory_config->compress_link == 2) {
       m_memory_link[i] = new compressed_memory_link(link_name,
-          1*m_memory_config->n_flit_per_mem_cycle,
+          link_latency, comp_latency, decomp_latency,
           m_memory_config, ctx);
       printf("Compressed memory link\n");
     }
     else {
-      m_memory_link[i] = new memory_link(link_name,
-          1*m_memory_config->n_flit_per_mem_cycle,
-          m_memory_config, ctx);
-      printf("Memory link\n");
+      printf("ERROR: Invalid compression algorithm.\n");
+      exit(1);
     }
   }
 
@@ -898,7 +917,7 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
     new memory_sub_partition *[m_memory_config->m_n_mem_sub_partition];
   for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
     m_memory_partition_unit[i] =
-      new memory_partition_unit(i, m_memory_link[i/6], m_memory_config, m_memory_stats, this);
+      new memory_partition_unit(i, m_memory_link[i/m_n_mem_per_link], m_memory_config, m_memory_stats, this);
     for (unsigned p = 0;
         p < m_memory_config->m_n_sub_partition_per_memory_channel; p++) {
       unsigned submpid =
@@ -925,18 +944,19 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
 
   last_liveness_message_time = 0;
 
-  if (m_memory_config->compress_link == 1)
-  {
+  if (m_memory_config->compress_link == 0) {
+    g_comp = NULL;
+    printf("No compression algorithm is attached.\n");
+  }
+  else if (m_memory_config->compress_link == 1) {
     g_comp = new CachePacker();
     printf("C-Pack is instantiated\n");
   }
-  else if (m_memory_config->compress_link == 2)
-  {
+  else if (m_memory_config->compress_link == 2) {
     g_comp = new MPCompressor();
     printf("MPC is instantiated\n");
   }
-  else
-  {
+  else {
     printf("ERROR: Compressor option is not specified\n");
     exit(1);
   }
