@@ -81,7 +81,7 @@ public:
 class compressed_dn_link : public compressed_oneway_link {
 public:
   compressed_dn_link(const char* nm,
-      unsigned link_latency, unsigned comp_latency,
+      unsigned comp_link_latency,
       unsigned src_cnt, unsigned dst_cnt,
       gpgpu_context *ctx);
 
@@ -92,7 +92,7 @@ public:
 class compressed_up_link : public compressed_oneway_link {
 public:
   compressed_up_link(const char* nm,
-      unsigned link_latency, unsigned decomp_latency,
+      unsigned comp_link_latency,
       unsigned src_cnt, unsigned dst_cnt, 
       gpgpu_context *ctx);
 

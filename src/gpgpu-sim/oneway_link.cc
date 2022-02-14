@@ -2,8 +2,6 @@
 
 //extern gpgpu_sim* g_the_gpu;
 
-//#define COMPRESSION_LATENCY 3
-//#define DECOMPRESSION_LATENCY 4
 #define FLIT_SIZE 128     // max packet length in terms of FLIT
 #define HT_OVERHEAD 128   // head+tail overheads
 #define QUEUE_SIZE 4000
@@ -205,13 +203,12 @@ bool compressed_oneway_link::push(mem_fetch *mf,
 
 
 compressed_dn_link::compressed_dn_link(const char* nm,
-    unsigned link_latency, unsigned comp_latency,
+    unsigned comp_link_latency,
     unsigned src_cnt, unsigned dst_cnt,
     gpgpu_context *ctx)
-  : compressed_oneway_link(nm, link_latency, src_cnt, dst_cnt, ctx)
+  : compressed_oneway_link(nm, comp_link_latency, src_cnt, dst_cnt, ctx)
 {
-  // compression latency
-  m_ready_compressed = new compressed_link_delay_queue(nm, QUEUE_SIZE, comp_latency, ctx);
+  m_ready_compressed = new compressed_link_delay_queue(nm, QUEUE_SIZE, 1, ctx);
 }
 
 void compressed_dn_link::step_link_push(unsigned n_flit)
@@ -343,13 +340,12 @@ void compressed_dn_link::step_link_pop(unsigned n_flit)
 
 
 compressed_up_link::compressed_up_link(const char* nm,
-    unsigned link_latency, unsigned decomp_latency,
+    unsigned comp_link_latency, 
     unsigned src_cnt, unsigned dst_cnt,
     gpgpu_context *ctx)
-  : compressed_oneway_link(nm, link_latency, src_cnt, dst_cnt, ctx)
+  : compressed_oneway_link(nm, comp_link_latency, src_cnt, dst_cnt, ctx)
 {
-  // decompression latency
-  m_ready_compressed = new compressed_link_delay_queue(nm, QUEUE_SIZE, decomp_latency, ctx);
+  m_ready_compressed = new compressed_link_delay_queue(nm, QUEUE_SIZE, 1, ctx);
 }
 
 void compressed_up_link::step_link_push(unsigned n_flit)

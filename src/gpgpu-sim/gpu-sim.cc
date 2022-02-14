@@ -888,7 +888,10 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
   partiton_replys_in_parallel_total = 0;
 
   // memory link : array of pointers
-  unsigned link_latency = m_memory_config->n_flit_per_mem_cycle;
+  const unsigned &link_latency = m_memory_config->link_latency;
+  const unsigned &comp_latency = m_memory_config->comp_latency;
+  const unsigned &decomp_latency = m_memory_config->decomp_latency;
+
   m_memory_link = new memory_link*[m_memory_config->m_n_mem_link];
   for (unsigned i = 0; i < m_memory_config->m_n_mem_link; i++) {
     char link_name[32];
@@ -917,7 +920,7 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
     new memory_sub_partition *[m_memory_config->m_n_mem_sub_partition];
   for (unsigned i = 0; i < m_memory_config->m_n_mem; i++) {
     m_memory_partition_unit[i] =
-      new memory_partition_unit(i, m_memory_link[i/m_n_mem_per_link], m_memory_config, m_memory_stats, this);
+      new memory_partition_unit(i, m_memory_link[i/m_memory_config->m_n_mem_per_link], m_memory_config, m_memory_stats, this);
     for (unsigned p = 0;
         p < m_memory_config->m_n_sub_partition_per_memory_channel; p++) {
       unsigned submpid =

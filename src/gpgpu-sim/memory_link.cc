@@ -127,16 +127,17 @@ compressed_memory_link::compressed_memory_link(const char* nm,
 {
   strcpy(m_nm, nm);
   
+  const unsigned comp_link_latency = link_latency + comp_latency + decomp_latency;
   char link_nm[256];
   sprintf(link_nm, "%s.dn", nm);
   m_dn = new compressed_dn_link(link_nm,
-      link_latency, comp_latency,
+      comp_link_latency,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       ctx);
   sprintf(link_nm, "%s.up", nm);
   m_up = new compressed_up_link(link_nm,
-      link_latency, decomp_latency,
+      comp_link_latency,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       ctx);
