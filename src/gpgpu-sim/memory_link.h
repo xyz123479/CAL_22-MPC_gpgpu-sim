@@ -16,6 +16,7 @@ class memory_link {
 public:
   memory_link(const char* nm,
       unsigned link_latency,
+      unsigned n_mem_per_link,
       const struct memory_config *config,
       gpgpu_context *ctx);
   ~memory_link();
@@ -59,6 +60,7 @@ public:
 //                         gpgpu_context *ctx);
   compressed_memory_link(const char* nm,
      unsigned link_latency, unsigned comp_latency, unsigned decomp_latency,
+     unsigned n_mem_per_link,
      const struct memory_config *config,
      gpgpu_context *ctx);
 };

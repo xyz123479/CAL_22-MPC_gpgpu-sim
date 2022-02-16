@@ -74,6 +74,7 @@ void oneway_link::step_link_pop(unsigned n_flit)
     if (mf!=NULL) {
       //printf("QQ:pop  %p %8u\n", mf, mf->get_request_uid());
       unsigned dst_id = get_dst_id(mf);
+      assert(m_complete_list[dst_id].size()<1000);
       //if (m_complete_list[dst_id].size()>=1000) {
       //    assert(0);
       //}
@@ -322,16 +323,18 @@ void compressed_dn_link::step_link_pop(unsigned n_flit)
       //printf("QQ:pop  %p %8u\n", mf, mf->get_request_uid());
       if (mf->get_type()==READ_REQUEST) { // no decompression
         unsigned dst_id = get_dst_id(mf);
-        if (m_complete_list[dst_id].size()>=1000) {
-          assert(0);
-        }
+        assert(m_complete_list[dst_id].size()<1000);
+//        if (m_complete_list[dst_id].size()>=1000) {
+//          assert(0);
+//        }
         m_complete_list[dst_id].push(mf);
       } else {
         assert(mf->get_type()==WRITE_REQUEST);  // decompression
         unsigned dst_id = get_dst_id(mf);
-        if (m_complete_list[dst_id].size()>=1000) {
-          assert(0);
-        }
+        assert(m_complete_list[dst_id].size()<1000);
+//        if (m_complete_list[dst_id].size()>=1000) {
+//          assert(0);
+//        }
         m_complete_list[dst_id].push(mf);
       }
     }

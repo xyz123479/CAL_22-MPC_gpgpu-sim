@@ -2,6 +2,7 @@
 
 memory_link::memory_link(const char* nm,
     unsigned link_latency,
+    unsigned n_mem_per_link,
     const struct memory_config *config,
     gpgpu_context *ctx)
   : m_config(config), m_ctx(ctx)
@@ -11,13 +12,13 @@ memory_link::memory_link(const char* nm,
   char link_nm[256];
   sprintf(link_nm, "%s.dn", nm);
   m_dn = new oneway_link(link_nm,
-      link_latency,
+      link_latency * n_mem_per_link,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       ctx);
   sprintf(link_nm, "%s.up", nm);
   m_up = new oneway_link(link_nm,
-      link_latency,
+      link_latency * n_mem_per_link,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
       ctx);
@@ -121,13 +122,15 @@ void memory_link::print_stat() const
 
 compressed_memory_link::compressed_memory_link(const char* nm,
     unsigned link_latency, unsigned comp_latency, unsigned decomp_latency,
+    unsigned n_mem_per_link,
     const struct memory_config *config,
     gpgpu_context *ctx)
-  : memory_link(nm, 1, config, ctx)
+  : memory_link(nm, 1, 0, config, ctx)
 {
   strcpy(m_nm, nm);
   
-  const unsigned comp_link_latency = link_latency + comp_latency + decomp_latency;
+  const unsigned comp_link_latency =
+    (link_latency + comp_latency + decomp_latency) * n_mem_per_link;
   char link_nm[256];
   sprintf(link_nm, "%s.dn", nm);
   m_dn = new compressed_dn_link(link_nm,
