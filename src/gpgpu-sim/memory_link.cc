@@ -125,7 +125,7 @@ compressed_memory_link::compressed_memory_link(const char* nm,
     unsigned n_mem_per_link,
     const struct memory_config *config,
     gpgpu_context *ctx)
-  : memory_link(nm, 1, 0, config, ctx)
+  : memory_link(nm, 1, 1, config, ctx)
 {
   strcpy(m_nm, nm);
   
