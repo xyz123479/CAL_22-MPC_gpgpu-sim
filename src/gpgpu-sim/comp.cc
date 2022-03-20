@@ -19,10 +19,16 @@
 compressor *g_comp;
 
 // MPC ---------------------------------------------------------------------
-unsigned MPCompressor::compress(uint8_t* data)
+unsigned MPCompressor::compress(uint8_t* data, int req_size)
 {
-  std::vector<uint8_t> dataLine(data, data + LSIZE/BYTE);
-  return (this->*compressLine)(dataLine);
+  std::vector<uint8_t> dataLine(data, data + req_size);
+  unsigned compressed_size = (this->*compressLine)(dataLine);
+
+  // stat
+  m_uncomp_size += req_size * BYTE;
+  m_comp_size += compressed_size;
+
+  return compressed_size;
 }
 
 unsigned MPCompressor::compressLineAllWordSame(std::vector<uint8_t> &dataLine)
@@ -327,7 +333,6 @@ void MPCompressor::parseConfig(std::string &configPath)
       m_CompModules[i] = compModule;
     }
   }
-//  static_cast<VPCResult*>(m_Stat)->SetNumModules(m_NumModules);
 }
 
 unsigned MPCompressor::checkAllZeros(const int chosenCompModule, bool &isAllZeros, std::vector<uint8_t> &dataLine)
@@ -341,7 +346,6 @@ unsigned MPCompressor::checkAllZeros(const int chosenCompModule, bool &isAllZero
   {
     isAllZeros = true;
     compressedSize += m_EncodingBits[chosenCompModule];
-//    static_cast<VPCResult*>(m_Stat)->Update(uncompressedSize, compressedSize, chosenCompModule);
   }
 
   return compressedSize;
@@ -358,7 +362,6 @@ unsigned MPCompressor::checkAllWordSame(const int chosenCompModule, bool &isAllW
   {
     isAllWordSame = true;
     compressedSize += m_EncodingBits[chosenCompModule];
-//    static_cast<VPCResult*>(m_Stat)->Update(uncompressedSize, compressedSize, chosenCompModule);
   }
 
   return compressedSize;
@@ -411,13 +414,12 @@ unsigned MPCompressor::checkOtherPatterns(const int numStartingModule, std::vect
 }
 
 // CPACK ---------------------------------------------------------------------
-unsigned CachePacker::compress(uint8_t *data)
+unsigned CachePacker::compress(uint8_t *data, int req_size)
 {
-  std::vector<uint8_t> dataLine(data, data + LSIZE/BYTE);
-  unsigned uncompSize = LSIZE;
+  std::vector<uint8_t> dataLine(data, data + req_size);
+  unsigned uncompSize = req_size;
   unsigned currCSize = 0;
 
-//  CPACKResult* m_stat = static_cast<CPACKResult*>(m_Stat);
 
   for (int i = 0; i < dataLine.size() / CPACK_WORDSIZE; i++)
   {
@@ -432,13 +434,11 @@ unsigned CachePacker::compress(uint8_t *data)
       if (word[3] == 0)
       {
         currCSize += m_PatternLength[0];
-//        m_stat->UpdatePattern((int)CPACKPattern::ZZZZ);
       }
       // pattern zzzx (1100)B
       else
       {
         currCSize += m_PatternLength[4];
-//        m_stat->UpdatePattern((int)CPACKPattern::ZZZX);
       }
       continue;
     }
@@ -460,20 +460,17 @@ unsigned CachePacker::compress(uint8_t *data)
           if (word[3] == dictWord[3])
           {
             currCSize += m_PatternLength[2];
-//            m_stat->UpdatePattern((int)CPACKPattern::MMMM);
           }
           // pattern mmmx (1110)bbbbB
           else
           {
             currCSize += m_PatternLength[5];
-//            m_stat->UpdatePattern((int)CPACKPattern::MMMX);
           }
         }
         // pattern mmxx (1100)bbbbBB
         else
         {
           currCSize += m_PatternLength[3];
-//          m_stat->UpdatePattern((int)CPACKPattern::MMXX);
         }
         found = true;
         break;
@@ -500,11 +497,11 @@ unsigned CachePacker::compress(uint8_t *data)
       m_Dictionary.pop_front();
       delete[] popEntry;
 
-//      m_stat->UpdatePattern((int)CPACKPattern::XXXX);
     }
   }
 
-//  m_stat->Update(uncompSize, currCSize);
+  m_uncomp_size += req_size * BYTE;
+  m_comp_size += currCSize;
   return currCSize;
 }
 

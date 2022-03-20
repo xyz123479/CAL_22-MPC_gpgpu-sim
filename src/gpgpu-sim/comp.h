@@ -16,7 +16,7 @@
 #include "../abstract_hardware_model.h"
 
 //--------------------------------------------------------------------
-#define LSIZE (256)     // in bits
+//#define LSIZE (256)     // in bits
 //#define LSIZE (512)     // in bits
 //#define LSIZE (1024)    // in bits
 
@@ -37,32 +37,32 @@ typedef unsigned long long  CNT;
 typedef unsigned            LENGTH;
 typedef INT64               KEY;
 
-static const UINT32 _MAX_BYTES_PER_LINE     = LSIZE/8;
-static const UINT32 _MAX_WORDS_PER_LINE     = LSIZE/16;
-static const UINT32 _MAX_DWORDS_PER_LINE    = LSIZE/32;
-static const UINT32 _MAX_QWORDS_PER_LINE    = LSIZE/64;
-static const UINT32 _MAX_FLOATS_PER_LINE    = LSIZE/32;
-static const UINT32 _MAX_DOUBLES_PER_LINE   = LSIZE/64;
+//static const UINT32 _MAX_BYTES_PER_LINE     = LSIZE/8;
+//static const UINT32 _MAX_WORDS_PER_LINE     = LSIZE/16;
+//static const UINT32 _MAX_DWORDS_PER_LINE    = LSIZE/32;
+//static const UINT32 _MAX_QWORDS_PER_LINE    = LSIZE/64;
+//static const UINT32 _MAX_FLOATS_PER_LINE    = LSIZE/32;
+//static const UINT32 _MAX_DOUBLES_PER_LINE   = LSIZE/64;
 
 typedef struct { UINT64 m : 52; UINT64 e : 11; UINT64 s : 1; } FLT64_P;
 typedef struct { UINT32 m : 23; UINT32 e : 8;  UINT32 s : 1; } FLT32_P;
 //------------------------------------------------------------------------------
-typedef union CACHELINE_DATA {
-    UINT8   byte[_MAX_BYTES_PER_LINE];
-    UINT16  word[_MAX_WORDS_PER_LINE];
-    UINT32  dword[_MAX_DWORDS_PER_LINE];
-    UINT64  qword[_MAX_QWORDS_PER_LINE];
-
-    INT8    s_byte[_MAX_BYTES_PER_LINE];
-    INT16   s_word[_MAX_WORDS_PER_LINE];
-    INT32   s_dword[_MAX_DWORDS_PER_LINE];
-    INT64   s_qword[_MAX_QWORDS_PER_LINE];
-
-    FLT32   flt[_MAX_FLOATS_PER_LINE];
-    FLT64   dbl[_MAX_DOUBLES_PER_LINE];
-    FLT32_P flt_p[_MAX_FLOATS_PER_LINE];
-    FLT64_P dbl_p[_MAX_DOUBLES_PER_LINE];
-} CACHELINE_DATA;
+//typedef union CACHELINE_DATA {
+//    UINT8   byte[_MAX_BYTES_PER_LINE];
+//    UINT16  word[_MAX_WORDS_PER_LINE];
+//    UINT32  dword[_MAX_DWORDS_PER_LINE];
+//    UINT64  qword[_MAX_QWORDS_PER_LINE];
+//
+//    INT8    s_byte[_MAX_BYTES_PER_LINE];
+//    INT16   s_word[_MAX_WORDS_PER_LINE];
+//    INT32   s_dword[_MAX_DWORDS_PER_LINE];
+//    INT64   s_qword[_MAX_QWORDS_PER_LINE];
+//
+//    FLT32   flt[_MAX_FLOATS_PER_LINE];
+//    FLT64   dbl[_MAX_DOUBLES_PER_LINE];
+//    FLT32_P flt_p[_MAX_FLOATS_PER_LINE];
+//    FLT64_P dbl_p[_MAX_DOUBLES_PER_LINE];
+//} CACHELINE_DATA;
 //------------------------------------------------------------------------------
 typedef unsigned long long virtual_stream_id;
 //------------------------------------------------------------------------------
@@ -71,9 +71,19 @@ typedef unsigned long long virtual_stream_id;
 //------------------------------------------------------------------------------
 class compressor {
 public:
-    compressor() {}
+  compressor() {}
+  void print() {
+    printf("Total data size = %llu\n", m_uncomp_size);
+    printf("Total data compressed size = %llu\n", m_comp_size);
+    double comp_ratio = (double)m_uncomp_size / (double)m_comp_size;
+    printf("Compression ratio = %lf\n", comp_ratio);
+  }
 
-    virtual unsigned compress(uint8_t* data) = 0;
+  virtual unsigned compress(uint8_t* data, int req_size) = 0;
+
+protected:
+  uint64_t m_uncomp_size = 0;
+  uint64_t m_comp_size = 0;
 };
 //------------------------------------------------------------------------------
 extern char *configPath;
@@ -85,8 +95,6 @@ public:
   {
     std::string configPathStr(configPath);
     parseConfig(configPathStr);
-//    m_Stat = new VPCResult(m_LineSize, m_NumModules);
-//    m_Stat->CompressorName = "Contrastive Clustering Compressor";
   }
 
   /*** getters ***/
@@ -95,7 +103,7 @@ public:
   int GetNumClusters()    { return m_NumClusters; }
 
   /*** methods ***/
-  virtual unsigned compress(uint8_t *data);
+  virtual unsigned compress(uint8_t *data, int req_size);
 
 private :
   void parseConfig(std::string &configPath);
@@ -105,7 +113,6 @@ private :
   unsigned checkAllZeros(const int chosenCompModule, bool &isAllZeros, std::vector<uint8_t> &dataLine);
   unsigned checkAllWordSame(const int chosenCompModule, bool &isAllWordSame, std::vector<uint8_t> &dataLine);
   unsigned checkOtherPatterns(const int numStartingModule, std::vector<uint8_t> &dataLine);
-//  void updateResidueStat(uint8_t *data, const int chosenCompModule);
 
 private:
   /*** members ***/
@@ -141,7 +148,7 @@ public:
     }
   }
 
-  virtual unsigned compress(uint8_t *data); 
+  virtual unsigned compress(uint8_t *data, int req_size); 
 
 private:
   std::deque<uint8_t*> m_Dictionary;

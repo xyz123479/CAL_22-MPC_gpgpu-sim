@@ -1154,6 +1154,8 @@ void gpgpu_sim::print_stats() {
   for (unsigned i = 0; i < m_memory_config->m_n_mem_link; i++) {
     m_memory_link[i]->print_stat();
   }
+  if (g_comp != NULL)
+    g_comp->print();
 }
 
 void gpgpu_sim::deadlock_check() {
@@ -2082,7 +2084,7 @@ void gpgpu_sim::cycle() {
       }
     }
 
-    if (!(gpu_sim_cycle % 100000)) {
+    if (!(gpu_sim_cycle % 1000000000)) {
       // deadlock detection
       if (m_config.gpu_deadlock_detect && gpu_sim_insn == last_gpu_sim_insn) {
         gpu_deadlock = true;
