@@ -12,6 +12,9 @@
 #include "comp.h"
 #include "oneway_link.h"
 
+extern uint64_t comp_size;
+extern uint64_t original_size;
+
 class memory_link {
 public:
   memory_link(const char* nm,

@@ -97,6 +97,10 @@ void memory_link::print() const
 }
 void memory_link::print_stat() const
 {
+  double comp_ratio = (double)original_size / (double)comp_size;
+//  printf("tot_comp_size = %llu\n", comp_size);
+//  printf("tot_orginal_size = %llu\n", original_size);
+//  printf("tot_comp_ratio = %lf\n", comp_ratio);
   m_dn->print_stat();
   m_up->print_stat();
 }

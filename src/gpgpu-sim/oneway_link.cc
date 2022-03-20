@@ -1,10 +1,17 @@
 #include "oneway_link.h"
+#include "comp.h"
 
 //extern gpgpu_sim* g_the_gpu;
 
-#define FLIT_SIZE 128     // max packet length in terms of FLIT
-#define HT_OVERHEAD 128   // head+tail overheads
+#define FLIT_SIZE 128         // FLIT size (bits)
+#define PACKET_SIZE (4*1024)  // Max packet length (bytes)
+#define HT_OVERHEAD 64        // Head+tail overheads (bits)
+#define TAG_32_OVERHEAD 9     // Tag overhead for 32B req_size to enable out-of-order link access
+                              // 2^(8+1), log2(32B) + additional 1b
+#define TAG_128_OVERHEAD 11   // Tag overhead for 128B req_size to enable out-of-order link access
+                              // 2^(10+1), log2(128B) + additional 1b
 #define QUEUE_SIZE 4000
+
 
 // -------------------------------------------------------------------------
 // Base oneway link interface
@@ -74,10 +81,7 @@ void oneway_link::step_link_pop(unsigned n_flit)
     if (mf!=NULL) {
       //printf("QQ:pop  %p %8u\n", mf, mf->get_request_uid());
       unsigned dst_id = get_dst_id(mf);
-      assert(m_complete_list[dst_id].size()<1000);
-      //if (m_complete_list[dst_id].size()>=1000) {
-      //    assert(0);
-      //}
+      assert(m_complete_list[dst_id].size()<QUEUE_SIZE);
       m_complete_list[dst_id].push(mf);
     }
   }
@@ -289,22 +293,33 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
 
       // compress
       mem_fetch *mf = m_ready_long_list[src_id].front();
-//      unsigned req_size = mf->get_data_size();
-      unsigned req_size = 32;
+      unsigned req_size = mf->get_data_size();
       unsigned char *req_data = (unsigned char *)malloc(sizeof(unsigned char) * req_size);
-      if (req_size == 32) {   // for now, compress only 32B blocks only
+      if (req_size == 32) {
         static int cnt = 0;
         for (int j = 0; j < 4; j++) {
           if (mf->mm_tpc[j] == -1 || mf->mm_sid[j] == -1 || mf->mm_wid[j] == -1) continue;
           for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
-          comp_bit_size = g_comp->compress(req_data);
+          comp_bit_size = g_comp->compress(req_data, req_size);
           cnt += comp_bit_size;
-          if (cnt > FLIT_SIZE * BYTE) {   // spread over two packets
-            cnt -= FLIT_SIZE * BYTE;
+
+          if (cnt > PACKET_SIZE * BYTE) {   // spread over two packets
+            cnt -= PACKET_SIZE * BYTE;
           } else {            // compacted packet --> TAG overhead
-            comp_bit_size += 9;   // 2^(8+1), log2(32B) + additional 1b
+            comp_bit_size += TAG_32_OVERHEAD;
           }
         } 
+      } else if (req_size == 128) {
+        static int cnt = 0;
+        for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
+        comp_bit_size = g_comp->compress(req_data, req_size);
+        cnt += comp_bit_size;
+
+        if (cnt > PACKET_SIZE * BYTE) {   // spread over two packets
+          cnt -= PACKET_SIZE * BYTE;
+        } else {            // compacted packet --> TAG overhead
+          comp_bit_size += TAG_128_OVERHEAD;
+        }
       } else {
           comp_bit_size = mf->get_data_size() * BYTE;
       }
@@ -323,18 +338,12 @@ void compressed_dn_link::step_link_pop(unsigned n_flit)
       //printf("QQ:pop  %p %8u\n", mf, mf->get_request_uid());
       if (mf->get_type()==READ_REQUEST) { // no decompression
         unsigned dst_id = get_dst_id(mf);
-        assert(m_complete_list[dst_id].size()<1000);
-//        if (m_complete_list[dst_id].size()>=1000) {
-//          assert(0);
-//        }
+        assert(m_complete_list[dst_id].size()<QUEUE_SIZE);
         m_complete_list[dst_id].push(mf);
       } else {
         assert(mf->get_type()==WRITE_REQUEST);  // decompression
         unsigned dst_id = get_dst_id(mf);
-        assert(m_complete_list[dst_id].size()<1000);
-//        if (m_complete_list[dst_id].size()>=1000) {
-//          assert(0);
-//        }
+        assert(m_complete_list[dst_id].size()<QUEUE_SIZE);
         m_complete_list[dst_id].push(mf);
       }
     }
@@ -412,15 +421,30 @@ void compressed_up_link::step_link_push(unsigned n_flit)
       mem_fetch *mf = m_ready_long_list[src_id].front();
       unsigned req_size = mf->get_data_size();
       unsigned char *req_data = (unsigned char *)malloc(sizeof(unsigned char) * req_size);
-      if (req_size == 128) {
+      if (req_size == 32) {
+        static int cnt = 0;
+        for (int j = 0; j < 4; j++) {
+          if (mf->mm_tpc[j] == -1 || mf->mm_sid[j] == -1 || mf->mm_wid[j] == -1) continue;
+          for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
+          comp_bit_size = g_comp->compress(req_data, req_size);
+          cnt += comp_bit_size;
+
+          if (cnt > PACKET_SIZE * BYTE) {   // spread over two packets
+            cnt -= PACKET_SIZE * BYTE;
+          } else {            // compacted packet --> TAG overhead
+            comp_bit_size += TAG_32_OVERHEAD;
+          }
+        } 
+      } else if (req_size == 128) {
         static int cnt = 0;
         for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
-        comp_bit_size = g_comp->compress(req_data);
+        comp_bit_size = g_comp->compress(req_data, req_size);
         cnt += comp_bit_size;
-        if (cnt > FLIT_SIZE * BYTE) {   // spread over two packets
-          cnt -= FLIT_SIZE * BYTE;
+
+        if (cnt > PACKET_SIZE * BYTE) {   // spread over two packets
+          cnt -= PACKET_SIZE * BYTE;
         } else {            // compacted packet --> TAG overhead
-          comp_bit_size += 11; // 2^(10+1), log2(128B) + additional 1b
+          comp_bit_size += TAG_128_OVERHEAD;
         }
       } else {
         comp_bit_size = mf->get_data_size() * BYTE;
