@@ -3,14 +3,15 @@
 
 //extern gpgpu_sim* g_the_gpu;
 
-#define FLIT_SIZE 128         // FLIT size (bits)
-#define PACKET_SIZE (4*1024)  // Max packet length (bytes)
-#define HT_OVERHEAD 64        // Head+tail overheads (bits)
-#define TAG_32_OVERHEAD 9     // Tag overhead for 32B req_size to enable out-of-order link access
-                              // 2^(8+1), log2(32B) + additional 1b
-#define TAG_128_OVERHEAD 11   // Tag overhead for 128B req_size to enable out-of-order link access
-                              // 2^(10+1), log2(128B) + additional 1b
-#define QUEUE_SIZE 4000
+#define PACKET_SIZE ((4*1024)*BYTE)         // Max packet length (in bits)
+#define FLIT_WIDTH (32)
+#define FLIT_SIZE (PACKET_SIZE/FLIT_WIDTH)  // Max packet length in terms of FLITs
+#define HT_OVERHEAD (64)                    // Head+tail overheads (bits)
+#define TAG_32_OVERHEAD (9)                 // Tag overhead for 32B req_size to enable out-of-order link access
+                                            // 2^(8+1), log2(32B) + additional 1b
+#define TAG_128_OVERHEAD (11)               // Tag overhead for 128B req_size to enable out-of-order link access
+                                            // 2^(10+1), log2(128B) + additional 1b
+#define QUEUE_SIZE (4000)
 
 
 // -------------------------------------------------------------------------
@@ -303,8 +304,8 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
           comp_bit_size = g_comp->compress(req_data, req_size);
           cnt += comp_bit_size;
 
-          if (cnt > PACKET_SIZE * BYTE) {   // spread over two packets
-            cnt -= PACKET_SIZE * BYTE;
+          if (cnt > PACKET_SIZE) {   // spread over two packets
+            cnt -= PACKET_SIZE;
           } else {            // compacted packet --> TAG overhead
             comp_bit_size += TAG_32_OVERHEAD;
           }
@@ -315,8 +316,8 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
         comp_bit_size = g_comp->compress(req_data, req_size);
         cnt += comp_bit_size;
 
-        if (cnt > PACKET_SIZE * BYTE) {   // spread over two packets
-          cnt -= PACKET_SIZE * BYTE;
+        if (cnt > PACKET_SIZE) {   // spread over two packets
+          cnt -= PACKET_SIZE;
         } else {            // compacted packet --> TAG overhead
           comp_bit_size += TAG_128_OVERHEAD;
         }
@@ -429,8 +430,8 @@ void compressed_up_link::step_link_push(unsigned n_flit)
           comp_bit_size = g_comp->compress(req_data, req_size);
           cnt += comp_bit_size;
 
-          if (cnt > PACKET_SIZE * BYTE) {   // spread over two packets
-            cnt -= PACKET_SIZE * BYTE;
+          if (cnt > PACKET_SIZE) {   // spread over two packets
+            cnt -= PACKET_SIZE;
           } else {            // compacted packet --> TAG overhead
             comp_bit_size += TAG_32_OVERHEAD;
           }
@@ -441,8 +442,8 @@ void compressed_up_link::step_link_push(unsigned n_flit)
         comp_bit_size = g_comp->compress(req_data, req_size);
         cnt += comp_bit_size;
 
-        if (cnt > PACKET_SIZE * BYTE) {   // spread over two packets
-          cnt -= PACKET_SIZE * BYTE;
+        if (cnt > PACKET_SIZE) {   // spread over two packets
+          cnt -= PACKET_SIZE;
         } else {            // compacted packet --> TAG overhead
           comp_bit_size += TAG_128_OVERHEAD;
         }

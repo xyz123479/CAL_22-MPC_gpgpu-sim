@@ -97,32 +97,9 @@ void memory_link::print() const
 }
 void memory_link::print_stat() const
 {
-  double comp_ratio = (double)original_size / (double)comp_size;
-//  printf("tot_comp_size = %llu\n", comp_size);
-//  printf("tot_orginal_size = %llu\n", original_size);
-//  printf("tot_comp_ratio = %lf\n", comp_ratio);
   m_dn->print_stat();
   m_up->print_stat();
 }
-
-//compressed_memory_link::compressed_memory_link(const char* nm, unsigned int latency, const struct memory_config *config,
-//                                               gpgpu_context *ctx)
-//  : memory_link(nm, 1, config, ctx)
-//{
-//  strcpy(m_nm, nm);
-//
-//  char link_nm[256];
-//  sprintf(link_nm, "%s.dn", nm);
-//  m_dn = new compressed_dn_link(link_nm, latency,
-//      config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
-//      config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
-//      ctx);
-//  sprintf(link_nm, "%s.up", nm);
-//  m_up = new compressed_up_link(link_nm, latency,
-//      config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
-//      config->m_n_mem * config->m_n_sub_partition_per_memory_channel,
-//      ctx);
-//}
 
 compressed_memory_link::compressed_memory_link(const char* nm,
     unsigned link_latency, unsigned comp_latency, unsigned decomp_latency,

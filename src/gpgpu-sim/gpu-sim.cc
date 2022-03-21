@@ -221,10 +221,12 @@ void memory_config::reg_options(class OptionParser *opp) {
 
   // JIN: link params
   option_parser_register(opp, "-m_n_mem_per_link", OPT_INT32, &m_n_mem_per_link,
-                         "The number of memory modules per link", "6");
+                         "The number of memory modules per link", "8");
   // num flits to modify bandwidth
+  //  for 637.5GB/s(850MHz, 16B pin), 8 mems per link, 32-bit FLIT width
+  //      Matched -n_flit_per_mem_cycle == 32
   option_parser_register(opp, "-n_flit_per_mem_cycle", OPT_DOUBLE, &n_flit_per_mem_cycle,
-                         "The number of FLITS transfers per a memory cycle", "6.");
+                         "The number of FLITS transfers per a memory cycle", "32.");
   option_parser_register(opp, "-link_latency", OPT_INT32, &link_latency,
                         "Link latency", "6");
   // JIN: comp params
@@ -1884,8 +1886,6 @@ void gpgpu_sim::cycle() {
   // up link
   if (clock_mask && DRAM) {
     for (unsigned i = 0; i < m_memory_config->m_n_mem_link; i++) {
-      // link interface: 45Gbps x 16-bit = 720Gbps = 90GBps
-      // A DRAM clock (924MHz) = 48 link clock(45GHz) = 96B (48 x 16-bit) = 6 FLIT
       m_memory_link[i]->uplink_step(m_memory_config->n_flit_per_mem_cycle);
     }
   }
@@ -1914,8 +1914,6 @@ void gpgpu_sim::cycle() {
   // down link
   if (clock_mask && DRAM) {
     for (unsigned i = 0; i < m_memory_config->m_n_mem_link; i++) {
-      // link interface: 45Gbps x 16-bit = 720Gbps = 90GBps
-      // A DRAM clock (924MHz) = 48 link clock(45GHz) = 96B (48 x 16-bit) = 6 FLIT
       m_memory_link[i]->dnlink_step(m_memory_config->n_flit_per_mem_cycle);
       
     }

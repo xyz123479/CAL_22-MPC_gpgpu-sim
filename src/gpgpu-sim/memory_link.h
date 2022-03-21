@@ -12,9 +12,6 @@
 #include "comp.h"
 #include "oneway_link.h"
 
-extern uint64_t comp_size;
-extern uint64_t original_size;
-
 class memory_link {
 public:
   memory_link(const char* nm,
@@ -58,9 +55,6 @@ protected:
 
 class compressed_memory_link : public memory_link {
 public:
-//  compressed_memory_link(const char* nm, unsigned int latency,
-//                         const struct memory_config *config,
-//                         gpgpu_context *ctx);
   compressed_memory_link(const char* nm,
      unsigned link_latency, unsigned comp_latency, unsigned decomp_latency,
      unsigned n_mem_per_link,
