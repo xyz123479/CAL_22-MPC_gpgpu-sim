@@ -600,8 +600,8 @@ bool memory_sub_partition::L2_dram_queue_empty() const {
 #endif
 }
 
-std::set<mem_fetch *> L2_dram_set;
-std::set<mem_fetch *> dram_L2_set;
+//std::set<mem_fetch *> L2_dram_set;
+//std::set<mem_fetch *> dram_L2_set;
 
 class mem_fetch *memory_sub_partition::L2_dram_queue_top() const {
 #ifdef MPC
@@ -613,10 +613,10 @@ class mem_fetch *memory_sub_partition::L2_dram_queue_top() const {
 
 void memory_sub_partition::L2_dram_queue_pop() {
 #ifdef MPC
-  mem_fetch *mf = m_link->dnlink_top(m_id);
-  auto it = L2_dram_set.find(mf);
-  assert (it != L2_dram_set.end());
-  L2_dram_set.erase(it);
+//  mem_fetch *mf = m_link->dnlink_top(m_id);
+//  auto it = L2_dram_set.find(mf);
+//  assert (it != L2_dram_set.end());
+//  L2_dram_set.erase(it);
   m_link->dnlink_pop(m_id);
 #else
   m_L2_dram_queue->pop();
@@ -635,7 +635,7 @@ bool memory_sub_partition::L2_dram_queue_full()
 void memory_sub_partition::L2_dram_queue_push(mem_fetch *mf)
 {
 #ifdef MPC
-  L2_dram_set.insert(mf);
+//  L2_dram_set.insert(mf);
   m_link->dnlink_push(m_id, mf);
 #else
   m_L2_dram_queue->push(mf);
@@ -663,10 +663,10 @@ mem_fetch* memory_sub_partition::dram_L2_queue_top() const
 void memory_sub_partition::dram_L2_queue_pop()
 {
 #ifdef MPC
-  mem_fetch *mf = m_link->uplink_top(m_id);
-  auto it = dram_L2_set.find(mf);
-  assert (it != dram_L2_set.end());
-  dram_L2_set.erase(it);
+//  mem_fetch *mf = m_link->uplink_top(m_id);
+//  auto it = dram_L2_set.find(mf);
+//  assert (it != dram_L2_set.end());
+//  dram_L2_set.erase(it);
   return m_link->uplink_pop(m_id);
 #else
   m_dram_L2_queue->pop();
@@ -683,7 +683,7 @@ bool memory_sub_partition::dram_L2_queue_full() const {
 
 void memory_sub_partition::dram_L2_queue_push(class mem_fetch *mf) {
 #ifdef MPC
-  dram_L2_set.insert(mf);
+//  dram_L2_set.insert(mf);
   m_link->uplink_push(m_id, mf);
 #else
   m_dram_L2_queue->push(mf);
