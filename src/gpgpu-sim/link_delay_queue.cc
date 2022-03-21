@@ -42,6 +42,7 @@ void link_delay_queue::push(bool is_head, bool is_tail, mem_fetch* mf)
   m_is_head_array[m_wr_ptr] = is_head;
   m_is_tail_array[m_wr_ptr] = is_tail;
   m_wr_ptr = (m_wr_ptr+1) % m_arr_size;
+  assert ((m_wr_ptr % m_arr_size) != (m_rd_ptr % m_arr_size));
 }
 
 mem_fetch* link_delay_queue::pop()
@@ -52,8 +53,12 @@ mem_fetch* link_delay_queue::pop()
     //printf("MDQ::pop  %p %d\n", result, m_rd_ptr);
   }
   m_rd_ptr = (m_rd_ptr+1) % m_arr_size;
+  assert ((m_wr_ptr % m_arr_size) != (m_rd_ptr % m_arr_size));
   return result;
 }
+
+
+
 
 void link_delay_queue::print() const
 {

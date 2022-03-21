@@ -44,7 +44,7 @@ oneway_link::~oneway_link()
 
 bool oneway_link::full(unsigned src_id)
 {
-  return (m_ready_list[src_id].size()>=4);
+  return (m_ready_list[src_id].size()>=16);
 }
 void oneway_link::push(unsigned src_id, mem_fetch *mf)
 {
@@ -105,9 +105,9 @@ void oneway_link::step_link_push(unsigned n_flit)
         }
       }
 
-      for (unsigned i=m_cur_flit_cnt*FLIT_SIZE; (i<m_packet_bit_size) && (n_sent_flit_cnt<n_flit); i+=FLIT_SIZE) {
+      for (unsigned i=m_cur_flit_cnt*FLIT_WIDTH; (i<m_packet_bit_size) && (n_sent_flit_cnt<n_flit); i+=FLIT_WIDTH) {
         bool is_first = (i==0);
-        bool is_last = (i>=(m_packet_bit_size-FLIT_SIZE));
+        bool is_last = (i>=(m_packet_bit_size-FLIT_WIDTH));
         queue->push(is_first, is_last, mf);
         n_sent_flit_cnt++;
 
@@ -182,12 +182,12 @@ void compressed_oneway_link::push(unsigned mem_id, mem_fetch *mf)
 bool compressed_oneway_link::push(mem_fetch *mf,
     unsigned packet_bit_size, unsigned& n_sent_flit_cnt, unsigned n_flit, bool update)
 {
-  for (unsigned i=m_cur_flit_cnt*FLIT_SIZE; i<packet_bit_size; i+=FLIT_SIZE) {
+  for (unsigned i=m_cur_flit_cnt*FLIT_WIDTH; i<packet_bit_size; i+=FLIT_WIDTH) {
     if (n_sent_flit_cnt==n_flit) {
       return false;
     }
     bool is_first = (i==0);
-    bool is_last = (i>=(packet_bit_size-FLIT_SIZE));
+    bool is_last = (i>=(packet_bit_size-FLIT_WIDTH));
     queue->push(is_first, is_last, mf);
     n_sent_flit_cnt++;
     if (update) {
@@ -233,8 +233,8 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
       assert(it.first->get_type()==WRITE_REQUEST);
       if (m_cur_flit_cnt==0) {    // this is the first FLIT of a packet
         unsigned packet_bit_size = HT_OVERHEAD+it.second-m_leftover;
-        m_packet_bit_size = ((packet_bit_size+FLIT_SIZE-1)/FLIT_SIZE)*FLIT_SIZE;
-        m_leftover = ((packet_bit_size%FLIT_SIZE)==0) ? 0 : FLIT_SIZE - (packet_bit_size%FLIT_SIZE);
+        m_packet_bit_size = ((packet_bit_size+FLIT_WIDTH-1)/FLIT_WIDTH)*FLIT_WIDTH;
+        m_leftover = ((packet_bit_size%FLIT_WIDTH)==0) ? 0 : FLIT_WIDTH - (packet_bit_size%FLIT_WIDTH);
       }
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
@@ -266,8 +266,8 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
       assert(it.first->get_type()==WRITE_REQUEST);
       if (m_cur_flit_cnt==0) {
         unsigned packet_bit_size = HT_OVERHEAD+it.second-m_leftover;
-        m_packet_bit_size = ((packet_bit_size+FLIT_SIZE-1)/FLIT_SIZE)*FLIT_SIZE;
-        m_leftover = ((packet_bit_size%FLIT_SIZE)==0) ? 0 : FLIT_SIZE - (packet_bit_size%FLIT_SIZE);
+        m_packet_bit_size = ((packet_bit_size+FLIT_WIDTH-1)/FLIT_WIDTH)*FLIT_WIDTH;
+        m_leftover = ((packet_bit_size%FLIT_WIDTH)==0) ? 0 : FLIT_WIDTH - (packet_bit_size%FLIT_WIDTH);
       }
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
@@ -378,8 +378,8 @@ void compressed_up_link::step_link_push(unsigned n_flit)
       assert(it.first->get_type()==READ_REPLY);
       if (m_cur_flit_cnt==0) {
         unsigned packet_bit_size = HT_OVERHEAD+it.second-m_leftover;
-        m_packet_bit_size = ((packet_bit_size+FLIT_SIZE-1)/FLIT_SIZE)*FLIT_SIZE;
-        m_leftover = ((packet_bit_size%FLIT_SIZE)==0) ? 0 : FLIT_SIZE - (packet_bit_size%FLIT_SIZE);
+        m_packet_bit_size = ((packet_bit_size+FLIT_WIDTH-1)/FLIT_WIDTH)*FLIT_WIDTH;
+        m_leftover = ((packet_bit_size%FLIT_WIDTH)==0) ? 0 : FLIT_WIDTH - (packet_bit_size%FLIT_WIDTH);
       }
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
