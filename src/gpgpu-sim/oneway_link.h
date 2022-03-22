@@ -44,6 +44,7 @@ protected:
   unsigned m_src_cnt, m_dst_cnt;
   unsigned m_cur_src_id;
   unsigned m_cur_flit_cnt;
+  unsigned m_cur_flit_cnt_nodata;
   unsigned m_packet_bit_size;
   unsigned long long m_total_flit_cnt;
   unsigned long long m_transfer_flit_cnt;
@@ -76,6 +77,7 @@ public:
   unsigned m_cur_comp_id;
   bool is_current_long;
   unsigned m_leftover;
+  unsigned m_leftover_nodata;
 };
 
 class compressed_dn_link : public compressed_oneway_link {

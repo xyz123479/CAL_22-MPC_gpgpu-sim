@@ -80,7 +80,7 @@ void oneway_link::step_link_pop(unsigned n_flit)
   for (unsigned i=0; i<n_flit; i++) {
     mem_fetch *mf = queue->pop();
     if (mf!=NULL) {
-      //printf("QQ:pop  %p %8u\n", mf, mf->get_request_uid());
+      printf("QQ:pop  %p %8u\n", mf, mf->get_request_uid());
       unsigned dst_id = get_dst_id(mf);
       assert(m_complete_list[dst_id].size()<QUEUE_SIZE);
       m_complete_list[dst_id].push(mf);
@@ -167,6 +167,7 @@ compressed_oneway_link::compressed_oneway_link(const char* nm,
   is_current_long = false;
   m_cur_comp_id = 0;
   m_leftover = 0;
+  m_leftover_nodata = 0;
 }
 
 void compressed_oneway_link::push(unsigned mem_id, mem_fetch *mf)
@@ -180,7 +181,7 @@ void compressed_oneway_link::push(unsigned mem_id, mem_fetch *mf)
 }
 
 bool compressed_oneway_link::push(mem_fetch *mf,
-    unsigned packet_bit_size, unsigned& n_sent_flit_cnt, unsigned n_flit, bool update)
+    unsigned packet_bit_size, unsigned &n_sent_flit_cnt, unsigned n_flit, bool update)
 {
   for (unsigned i=m_cur_flit_cnt*FLIT_WIDTH; i<packet_bit_size; i+=FLIT_WIDTH) {
     if (n_sent_flit_cnt==n_flit) {
@@ -222,12 +223,32 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
   unsigned n_sent_flit_cnt = 0;
 
   // Priorities
+  // 0. Read request if there is a left-over mf from 2.
   // 1. Write request if there is an on-going write request
   // 2. Read request if no left-over space
   // 3. Write request if no read request
 
+  // 0. Read requiest if there is a left-over mf from 2.
+//  if (m_leftover_nodata != 0) {
+//    for (unsigned i=0; (i<m_src_cnt) && (n_sent_flit_cnt<n_flit); i++) {
+//      unsigned src_id = (m_cur_src_id+i) % m_src_cnt;
+//      if (m_ready_short_list[src_id].size()>0) {
+//        mem_fetch *mf = m_ready_short_list[src_id].front();
+//        assert(mf->get_type()==READ_REQUEST);
+//        m_packet_bit_size = HT_OVERHEAD - m_leftover_nodata;
+//        m_leftover_nodata = m_packet_bit_size <= FLIT_WIDTH*(n_flit-n_sent_flit_cnt)
+//          ? 0 : m_packet_bit_size - FLIT_WIDTH*(n_flit-n_sent_flit_cnt);
+//        bool is_complete = push(mf, m_packet_bit_size, n_sent_flit_cnt, n_flit, false);
+//        if (is_complete) {
+//          m_ready_short_list[src_id].pop();
+//        }
+//        printf("compressed_dn_link::step_link_push() - priority 0 :: leftover no_data : %u\n", m_leftover_nodata);
+//      }
+//    }
+//  }
+
   // 1. Write request if there is an on-going write request
-  while ((n_sent_flit_cnt<n_flit) && (m_cur_flit_cnt!=0)) {
+  while ((n_sent_flit_cnt<n_flit) && (m_cur_flit_cnt!=0) && (m_leftover_nodata == 0)) {
     auto it = m_ready_compressed->top();
     if (it.first!=NULL) {
       assert(it.first->get_type()==WRITE_REQUEST);
@@ -252,10 +273,14 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
     if (m_ready_short_list[src_id].size()>0) {
       mem_fetch *mf = m_ready_short_list[src_id].front();
       assert(mf->get_type()==READ_REQUEST);
-      m_packet_bit_size = HT_OVERHEAD;
+      m_packet_bit_size = HT_OVERHEAD - m_leftover_nodata;
+      m_leftover_nodata = m_packet_bit_size <= FLIT_WIDTH*(n_flit-n_sent_flit_cnt)
+        ? 0 : m_packet_bit_size - FLIT_WIDTH*(n_flit-n_sent_flit_cnt);
       bool is_complete = push(mf, m_packet_bit_size, n_sent_flit_cnt, n_flit, false);
-      assert(is_complete);
-      m_ready_short_list[src_id].pop();
+      if (is_complete) {
+        m_ready_short_list[src_id].pop();
+      }
+      printf("compressed_dn_link::step_link_push() - priority 2 :: leftover no_data : %u\n", m_leftover_nodata);
     }
   }
 
@@ -283,7 +308,7 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
     queue->push(false, false, NULL);
     m_leftover = 0;     // left-over space is discarded
   }
-  assert(n_sent_flit_cnt==n_flit);
+//  assert(n_sent_flit_cnt==n_flit);
 
   // Compress write requests
   for (unsigned i=0; i<m_src_cnt; i++) {
@@ -336,7 +361,7 @@ void compressed_dn_link::step_link_pop(unsigned n_flit)
   for (unsigned i=0; i<n_flit; i++) {
     mem_fetch *mf = queue->pop();
     if (mf!=NULL) {
-      //printf("QQ:pop  %p %8u\n", mf, mf->get_request_uid());
+      printf("QQ:pop  %p %8u\n", mf, mf->get_request_uid());
       if (mf->get_type()==READ_REQUEST) { // no decompression
         unsigned dst_id = get_dst_id(mf);
         assert(m_complete_list[dst_id].size()<QUEUE_SIZE);
@@ -366,11 +391,31 @@ void compressed_up_link::step_link_push(unsigned n_flit)
   unsigned n_sent_flit_cnt = 0;
 
   // Priorities
+  // 0. Write ack if there is a left-over mf from 2.
   // 1. Read data
   // 2. Write acknowledge if no read data
 
+  // 0. Read requiest if there is a left-over mf from 2.
+//  if (m_leftover_nodata != 0) {
+//    for (unsigned i=0; (i<m_src_cnt) && (n_sent_flit_cnt<n_flit); i++) {
+//      unsigned src_id = (m_cur_src_id+i) % m_src_cnt;
+//      if (m_ready_short_list[src_id].size()>0) {
+//        mem_fetch *mf = m_ready_short_list[src_id].front();
+//        assert(mf->get_type()==READ_REQUEST);
+//        m_packet_bit_size = HT_OVERHEAD - m_leftover_nodata;
+//        m_leftover_nodata = m_packet_bit_size <= FLIT_WIDTH*(n_flit-n_sent_flit_cnt)
+//          ? 0 : m_packet_bit_size - FLIT_WIDTH*(n_flit-n_sent_flit_cnt);
+//        bool is_complete = push(mf, m_packet_bit_size, n_sent_flit_cnt, n_flit, false);
+//        if (is_complete) {
+//          m_ready_short_list[src_id].pop();
+//        }
+//        printf("compressed_up_link::step_link_push() - priority 0 :: leftover no_data : %u\n", m_leftover_nodata);
+//      }
+//    }
+//  }
+
   // 1. Read data
-  while (n_sent_flit_cnt<n_flit) {
+  while ((n_sent_flit_cnt<n_flit) && (m_leftover_nodata == 0)) {
     std::pair<mem_fetch *, unsigned> it = m_ready_compressed->top();
     if (it.first!=NULL) {
       //printf("TOP1 @%08d %p %d\n", gpu_sim_cycle, it.first, it.first->get_request_uid());
@@ -399,9 +444,13 @@ void compressed_up_link::step_link_push(unsigned n_flit)
       mem_fetch *mf = m_ready_short_list[src_id].front();
       assert(mf->get_type()==WRITE_ACK);
       m_packet_bit_size = HT_OVERHEAD;
+      m_leftover_nodata = m_packet_bit_size <= FLIT_WIDTH*(n_flit-n_sent_flit_cnt)
+        ? 0 : m_packet_bit_size - FLIT_WIDTH*(n_flit-n_sent_flit_cnt);
       bool is_complete = push(mf, m_packet_bit_size, n_sent_flit_cnt, n_flit);
-      assert(is_complete);
-      m_ready_short_list[src_id].pop();
+      if (is_complete) {
+        m_ready_short_list[src_id].pop();
+      }
+      printf("compressed_up_link::step_link_push() - priority 2 :: leftover no_data : %u\n", m_leftover_nodata);
     }
   }
 
@@ -409,7 +458,7 @@ void compressed_up_link::step_link_push(unsigned n_flit)
     queue->push(false, false, NULL);
     m_leftover = 0;
   }
-  assert(n_sent_flit_cnt==n_flit);
+//  assert(n_sent_flit_cnt==n_flit);
 
   // Compress read data
   for (unsigned i=0; i<m_src_cnt; i++) {
