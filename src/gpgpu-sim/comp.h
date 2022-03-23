@@ -81,7 +81,7 @@ public:
 
   virtual unsigned compress(uint8_t* data, int req_size) = 0;
 
-protected:
+public:
   uint64_t m_uncomp_size = 0;
   uint64_t m_comp_size = 0;
 };

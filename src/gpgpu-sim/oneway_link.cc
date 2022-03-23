@@ -34,6 +34,9 @@ oneway_link::oneway_link(const char* nm,
   m_transfer_flit_cnt = 0ull;
   m_transfer_single_flit_cnt = 0ull;
   m_transfer_multi_flit_cnt = 0ull;
+  
+  m_total_data_size = 0;
+  m_total_data_packet_size = 0;
 }
 oneway_link::~oneway_link()
 {
@@ -80,7 +83,7 @@ void oneway_link::step_link_pop(unsigned n_flit)
   for (unsigned i=0; i<n_flit; i++) {
     mem_fetch *mf = queue->pop();
     if (mf!=NULL) {
-      printf("QQ:pop  %p %8u\n", mf, mf->get_request_uid());
+//      printf("ONEWAY_LINK MAIN_Q POP : %p %8u\n", mf, mf->get_request_uid());
       unsigned dst_id = get_dst_id(mf);
       assert(m_complete_list[dst_id].size()<QUEUE_SIZE);
       m_complete_list[dst_id].push(mf);
@@ -100,6 +103,10 @@ void oneway_link::step_link_push(unsigned n_flit)
           m_packet_bit_size = HT_OVERHEAD;
         } else if ((mf->get_type()==WRITE_REQUEST)||(mf->get_type()==READ_REPLY)) {
           m_packet_bit_size = HT_OVERHEAD + mf->get_data_size()*BYTE;
+
+          // stat
+          m_total_data_size += mf->get_data_size()*BYTE;
+          m_total_data_packet_size += m_packet_bit_size;
         } else {
           assert(0);
         }
@@ -109,6 +116,7 @@ void oneway_link::step_link_push(unsigned n_flit)
         bool is_first = (i==0);
         bool is_last = (i>=(m_packet_bit_size-FLIT_WIDTH));
         queue->push(is_first, is_last, mf);
+//        printf("ONEWAY_LINK MAIN_Q PUSH: %p %8u\n", mf, mf->get_request_uid());
         n_sent_flit_cnt++;
 
         if (is_last) {
@@ -118,6 +126,8 @@ void oneway_link::step_link_push(unsigned n_flit)
         } else {
           m_cur_flit_cnt++;
         }
+
+        // stat
         if (m_packet_bit_size==HT_OVERHEAD) {
           m_transfer_single_flit_cnt++;
         } else {
@@ -146,9 +156,14 @@ void oneway_link::print() const
 }
 void oneway_link::print_stat() const
 {
+  printf("*** %s FLIT stats ***\n", m_name);
   printf("%s TOT %f (%lld/%lld)\n", m_name, m_transfer_flit_cnt*1./m_total_flit_cnt, m_transfer_flit_cnt, m_total_flit_cnt);
   printf("%s SIN %f (%lld/%lld)\n", m_name, m_transfer_single_flit_cnt*1./m_total_flit_cnt, m_transfer_single_flit_cnt, m_total_flit_cnt);
   printf("%s MUL %f (%lld/%lld)\n", m_name, m_transfer_multi_flit_cnt*1./m_total_flit_cnt, m_transfer_multi_flit_cnt, m_total_flit_cnt);
+  printf("%s total data size %llu\n", m_name, m_total_data_size);
+  printf("%s total data packet size %llu\n", m_name, m_total_data_packet_size);
+  printf("%s effective compression ratio %lf\n", m_name,
+      (double)m_total_data_size / (double)m_total_data_packet_size);
 }
 
 // -------------------------------------------------------------------------
@@ -190,6 +205,7 @@ bool compressed_oneway_link::push(mem_fetch *mf,
     bool is_first = (i==0);
     bool is_last = (i>=(packet_bit_size-FLIT_WIDTH));
     queue->push(is_first, is_last, mf);
+//    printf("  COMP_LINK MAIN_Q PUSH: %p %8u\n", mf, mf->get_request_uid());
     n_sent_flit_cnt++;
     if (update) {
       if (is_last) {
@@ -198,6 +214,8 @@ bool compressed_oneway_link::push(mem_fetch *mf,
         m_cur_flit_cnt++;
       }
     }
+
+    // stat
     if (packet_bit_size==HT_OVERHEAD) {
       m_transfer_single_flit_cnt++;
     } else {
@@ -223,29 +241,9 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
   unsigned n_sent_flit_cnt = 0;
 
   // Priorities
-  // 0. Read request if there is a left-over mf from 2.
   // 1. Write request if there is an on-going write request
   // 2. Read request if no left-over space
   // 3. Write request if no read request
-
-  // 0. Read requiest if there is a left-over mf from 2.
-//  if (m_leftover_nodata != 0) {
-//    for (unsigned i=0; (i<m_src_cnt) && (n_sent_flit_cnt<n_flit); i++) {
-//      unsigned src_id = (m_cur_src_id+i) % m_src_cnt;
-//      if (m_ready_short_list[src_id].size()>0) {
-//        mem_fetch *mf = m_ready_short_list[src_id].front();
-//        assert(mf->get_type()==READ_REQUEST);
-//        m_packet_bit_size = HT_OVERHEAD - m_leftover_nodata;
-//        m_leftover_nodata = m_packet_bit_size <= FLIT_WIDTH*(n_flit-n_sent_flit_cnt)
-//          ? 0 : m_packet_bit_size - FLIT_WIDTH*(n_flit-n_sent_flit_cnt);
-//        bool is_complete = push(mf, m_packet_bit_size, n_sent_flit_cnt, n_flit, false);
-//        if (is_complete) {
-//          m_ready_short_list[src_id].pop();
-//        }
-//        printf("compressed_dn_link::step_link_push() - priority 0 :: leftover no_data : %u\n", m_leftover_nodata);
-//      }
-//    }
-//  }
 
   // 1. Write request if there is an on-going write request
   while ((n_sent_flit_cnt<n_flit) && (m_cur_flit_cnt!=0) && (m_leftover_nodata == 0)) {
@@ -256,6 +254,9 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
         unsigned packet_bit_size = HT_OVERHEAD+it.second-m_leftover;
         m_packet_bit_size = ((packet_bit_size+FLIT_WIDTH-1)/FLIT_WIDTH)*FLIT_WIDTH;
         m_leftover = ((packet_bit_size%FLIT_WIDTH)==0) ? 0 : FLIT_WIDTH - (packet_bit_size%FLIT_WIDTH);
+
+        // stat
+        m_total_data_packet_size += m_packet_bit_size;
       }
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
@@ -280,7 +281,6 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
       if (is_complete) {
         m_ready_short_list[src_id].pop();
       }
-      printf("compressed_dn_link::step_link_push() - priority 2 :: leftover no_data : %u\n", m_leftover_nodata);
     }
   }
 
@@ -293,6 +293,9 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
         unsigned packet_bit_size = HT_OVERHEAD+it.second-m_leftover;
         m_packet_bit_size = ((packet_bit_size+FLIT_WIDTH-1)/FLIT_WIDTH)*FLIT_WIDTH;
         m_leftover = ((packet_bit_size%FLIT_WIDTH)==0) ? 0 : FLIT_WIDTH - (packet_bit_size%FLIT_WIDTH);
+
+        // stat
+        m_total_data_packet_size += m_packet_bit_size;
       }
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
@@ -323,8 +326,10 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
       unsigned char *req_data = (unsigned char *)malloc(sizeof(unsigned char) * req_size);
       if (req_size == 32) {
         static int cnt = 0;
-        for (int j = 0; j < 4; j++) {
-          if (mf->mm_tpc[j] == -1 || mf->mm_sid[j] == -1 || mf->mm_wid[j] == -1) continue;
+        mem_access_sector_mask_t sector_mask = mf->get_access_sector_mask();
+        
+        for (int j = 0; j < SECTOR_CHUNCK_SIZE; j++) {
+          if (!sector_mask[j]) continue;
           for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
           comp_bit_size = g_comp->compress(req_data, req_size);
           cnt += comp_bit_size;
@@ -334,6 +339,8 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
           } else {            // compacted packet --> TAG overhead
             comp_bit_size += TAG_32_OVERHEAD;
           }
+          // stat
+          m_total_data_size += req_size * BYTE;
         } 
       } else if (req_size == 128) {
         static int cnt = 0;
@@ -346,8 +353,10 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
         } else {            // compacted packet --> TAG overhead
           comp_bit_size += TAG_128_OVERHEAD;
         }
+        // stat
+        m_total_data_size += req_size * BYTE;
       } else {
-          comp_bit_size = mf->get_data_size() * BYTE;
+        assert(0);
       }
       m_ready_compressed->push(mf, comp_bit_size);
       m_ready_long_list[src_id].pop();
@@ -355,13 +364,13 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
   }
 }
 
+/*
 void compressed_dn_link::step_link_pop(unsigned n_flit)
 {
   // pop old entries
   for (unsigned i=0; i<n_flit; i++) {
     mem_fetch *mf = queue->pop();
     if (mf!=NULL) {
-      printf("QQ:pop  %p %8u\n", mf, mf->get_request_uid());
       if (mf->get_type()==READ_REQUEST) { // no decompression
         unsigned dst_id = get_dst_id(mf);
         assert(m_complete_list[dst_id].size()<QUEUE_SIZE);
@@ -375,7 +384,7 @@ void compressed_dn_link::step_link_pop(unsigned n_flit)
     }
   }
 }
-
+*/
 
 compressed_up_link::compressed_up_link(const char* nm,
     unsigned comp_link_latency, 
@@ -391,45 +400,25 @@ void compressed_up_link::step_link_push(unsigned n_flit)
   unsigned n_sent_flit_cnt = 0;
 
   // Priorities
-  // 0. Write ack if there is a left-over mf from 2.
   // 1. Read data
   // 2. Write acknowledge if no read data
-
-  // 0. Read requiest if there is a left-over mf from 2.
-//  if (m_leftover_nodata != 0) {
-//    for (unsigned i=0; (i<m_src_cnt) && (n_sent_flit_cnt<n_flit); i++) {
-//      unsigned src_id = (m_cur_src_id+i) % m_src_cnt;
-//      if (m_ready_short_list[src_id].size()>0) {
-//        mem_fetch *mf = m_ready_short_list[src_id].front();
-//        assert(mf->get_type()==READ_REQUEST);
-//        m_packet_bit_size = HT_OVERHEAD - m_leftover_nodata;
-//        m_leftover_nodata = m_packet_bit_size <= FLIT_WIDTH*(n_flit-n_sent_flit_cnt)
-//          ? 0 : m_packet_bit_size - FLIT_WIDTH*(n_flit-n_sent_flit_cnt);
-//        bool is_complete = push(mf, m_packet_bit_size, n_sent_flit_cnt, n_flit, false);
-//        if (is_complete) {
-//          m_ready_short_list[src_id].pop();
-//        }
-//        printf("compressed_up_link::step_link_push() - priority 0 :: leftover no_data : %u\n", m_leftover_nodata);
-//      }
-//    }
-//  }
 
   // 1. Read data
   while ((n_sent_flit_cnt<n_flit) && (m_leftover_nodata == 0)) {
     std::pair<mem_fetch *, unsigned> it = m_ready_compressed->top();
     if (it.first!=NULL) {
-      //printf("TOP1 @%08d %p %d\n", gpu_sim_cycle, it.first, it.first->get_request_uid());
-      //it.first->print(stdout, false);
       assert(it.first->get_type()==READ_REPLY);
       if (m_cur_flit_cnt==0) {
         unsigned packet_bit_size = HT_OVERHEAD+it.second-m_leftover;
         m_packet_bit_size = ((packet_bit_size+FLIT_WIDTH-1)/FLIT_WIDTH)*FLIT_WIDTH;
         m_leftover = ((packet_bit_size%FLIT_WIDTH)==0) ? 0 : FLIT_WIDTH - (packet_bit_size%FLIT_WIDTH);
+
+        // stat
+        m_total_data_packet_size += m_packet_bit_size;
       }
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
       if (is_complete) {
-        //printf("POP1 @%08d %p %d\n", gpu_sim_cycle, it.first, it.first->get_request_uid());
         m_ready_compressed->pop();
       }
     } else {
@@ -449,8 +438,8 @@ void compressed_up_link::step_link_push(unsigned n_flit)
       bool is_complete = push(mf, m_packet_bit_size, n_sent_flit_cnt, n_flit);
       if (is_complete) {
         m_ready_short_list[src_id].pop();
+//        printf("UPLINK READY_Q ACK : POP   %p %d\n", mf, mf->get_request_uid());
       }
-      printf("compressed_up_link::step_link_push() - priority 2 :: leftover no_data : %u\n", m_leftover_nodata);
     }
   }
 
@@ -474,7 +463,6 @@ void compressed_up_link::step_link_push(unsigned n_flit)
       if (req_size == 32) {
         static int cnt = 0;
         for (int j = 0; j < 4; j++) {
-          if (mf->mm_tpc[j] == -1 || mf->mm_sid[j] == -1 || mf->mm_wid[j] == -1) continue;
           for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
           comp_bit_size = g_comp->compress(req_data, req_size);
           cnt += comp_bit_size;
@@ -484,7 +472,9 @@ void compressed_up_link::step_link_push(unsigned n_flit)
           } else {            // compacted packet --> TAG overhead
             comp_bit_size += TAG_32_OVERHEAD;
           }
-        } 
+          // stat
+          m_total_data_size += req_size * BYTE;
+        }
       } else if (req_size == 128) {
         static int cnt = 0;
         for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
@@ -496,13 +486,14 @@ void compressed_up_link::step_link_push(unsigned n_flit)
         } else {            // compacted packet --> TAG overhead
           comp_bit_size += TAG_128_OVERHEAD;
         }
+        // stat
+        m_total_data_size += req_size * BYTE;
       } else {
-        comp_bit_size = mf->get_data_size() * BYTE;
+        assert(0);
       }
-
-      //printf("PUSH @%08d %p %d\n", gpu_sim_cycle, mf, mf->get_request_uid());
       m_ready_compressed->push(mf, comp_bit_size);
       m_ready_long_list[src_id].pop();
+//      printf("UPLINK COMPR_Q DATA: PUSH  %p %d\n", mf, mf->get_request_uid());
     }
   }
 }

@@ -53,6 +53,9 @@ protected:
   std::queue<mem_fetch *> *m_ready_list;
   std::queue<mem_fetch *> *m_complete_list;
 
+  uint64_t m_total_data_size;
+  uint64_t m_total_data_packet_size;
+
   gpgpu_context *m_ctx;
 };
 
@@ -88,7 +91,7 @@ public:
       gpgpu_context *ctx);
 
   void step_link_push(unsigned n_flit);
-  void step_link_pop(unsigned n_flit);
+//  void step_link_pop(unsigned n_flit);
 };
 
 class compressed_up_link : public compressed_oneway_link {
