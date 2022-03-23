@@ -4,7 +4,7 @@
 //extern gpgpu_sim* g_the_gpu;
 
 #define PACKET_SIZE ((4*1024)*BYTE)         // Max packet length (in bits)
-#define FLIT_WIDTH (32)
+#define FLIT_WIDTH (32)                     // FLIT-Width (in bits)
 #define FLIT_SIZE (PACKET_SIZE/FLIT_WIDTH)  // Max packet length in terms of FLITs
 #define HT_OVERHEAD (64)                    // Head+tail overheads (bits)
 #define TAG_32_OVERHEAD (9)                 // Tag overhead for 32B req_size to enable out-of-order link access
@@ -104,18 +104,18 @@ void oneway_link::step_link_push(unsigned n_flit)
         } else if ((mf->get_type()==WRITE_REQUEST)||(mf->get_type()==READ_REPLY)) {
           m_packet_bit_size = HT_OVERHEAD + mf->get_data_size()*BYTE;
 
-          // stat
-          m_total_data_size += mf->get_data_size()*BYTE;
-          m_total_data_packet_size += m_packet_bit_size;
+          m_total_data_size += mf->get_data_size()*BYTE;  // stat
         } else {
           assert(0);
         }
       }
 
+      // push into the delay_queue
       for (unsigned i=m_cur_flit_cnt*FLIT_WIDTH; (i<m_packet_bit_size) && (n_sent_flit_cnt<n_flit); i+=FLIT_WIDTH) {
         bool is_first = (i==0);
         bool is_last = (i>=(m_packet_bit_size-FLIT_WIDTH));
         queue->push(is_first, is_last, mf);
+        m_total_data_packet_size += FLIT_WIDTH;   // stat
 //        printf("ONEWAY_LINK MAIN_Q PUSH: %p %8u\n", mf, mf->get_request_uid());
         n_sent_flit_cnt++;
 
@@ -205,6 +205,7 @@ bool compressed_oneway_link::push(mem_fetch *mf,
     bool is_first = (i==0);
     bool is_last = (i>=(packet_bit_size-FLIT_WIDTH));
     queue->push(is_first, is_last, mf);
+    m_total_data_packet_size += FLIT_WIDTH;   // stat
 //    printf("  COMP_LINK MAIN_Q PUSH: %p %8u\n", mf, mf->get_request_uid());
     n_sent_flit_cnt++;
     if (update) {
@@ -254,9 +255,6 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
         unsigned packet_bit_size = HT_OVERHEAD+it.second-m_leftover;
         m_packet_bit_size = ((packet_bit_size+FLIT_WIDTH-1)/FLIT_WIDTH)*FLIT_WIDTH;
         m_leftover = ((packet_bit_size%FLIT_WIDTH)==0) ? 0 : FLIT_WIDTH - (packet_bit_size%FLIT_WIDTH);
-
-        // stat
-        m_total_data_packet_size += m_packet_bit_size;
       }
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
@@ -293,9 +291,6 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
         unsigned packet_bit_size = HT_OVERHEAD+it.second-m_leftover;
         m_packet_bit_size = ((packet_bit_size+FLIT_WIDTH-1)/FLIT_WIDTH)*FLIT_WIDTH;
         m_leftover = ((packet_bit_size%FLIT_WIDTH)==0) ? 0 : FLIT_WIDTH - (packet_bit_size%FLIT_WIDTH);
-
-        // stat
-        m_total_data_packet_size += m_packet_bit_size;
       }
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
@@ -324,7 +319,20 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
       mem_fetch *mf = m_ready_long_list[src_id].front();
       unsigned req_size = mf->get_data_size();
       unsigned char *req_data = (unsigned char *)malloc(sizeof(unsigned char) * req_size);
-      if (req_size == 32) {
+      if (req_size == 128) {    // NORMAL CACHE
+        static int cnt = 0;
+        for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
+        comp_bit_size = g_comp->compress(req_data, req_size);
+        cnt += comp_bit_size;
+
+        if (cnt > PACKET_SIZE) {   // spread over two packets
+          cnt -= PACKET_SIZE;
+        } else {            // compacted packet --> TAG overhead
+          comp_bit_size += TAG_128_OVERHEAD;
+        }
+        // stat
+        m_total_data_size += req_size * BYTE;
+      } else {                  // SECTOR CACHE
         static int cnt = 0;
         mem_access_sector_mask_t sector_mask = mf->get_access_sector_mask();
         
@@ -342,21 +350,6 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
           // stat
           m_total_data_size += req_size * BYTE;
         } 
-      } else if (req_size == 128) {
-        static int cnt = 0;
-        for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
-        comp_bit_size = g_comp->compress(req_data, req_size);
-        cnt += comp_bit_size;
-
-        if (cnt > PACKET_SIZE) {   // spread over two packets
-          cnt -= PACKET_SIZE;
-        } else {            // compacted packet --> TAG overhead
-          comp_bit_size += TAG_128_OVERHEAD;
-        }
-        // stat
-        m_total_data_size += req_size * BYTE;
-      } else {
-        assert(0);
       }
       m_ready_compressed->push(mf, comp_bit_size);
       m_ready_long_list[src_id].pop();
@@ -460,22 +453,7 @@ void compressed_up_link::step_link_push(unsigned n_flit)
       mem_fetch *mf = m_ready_long_list[src_id].front();
       unsigned req_size = mf->get_data_size();
       unsigned char *req_data = (unsigned char *)malloc(sizeof(unsigned char) * req_size);
-      if (req_size == 32) {
-        static int cnt = 0;
-        for (int j = 0; j < 4; j++) {
-          for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
-          comp_bit_size = g_comp->compress(req_data, req_size);
-          cnt += comp_bit_size;
-
-          if (cnt > PACKET_SIZE) {   // spread over two packets
-            cnt -= PACKET_SIZE;
-          } else {            // compacted packet --> TAG overhead
-            comp_bit_size += TAG_32_OVERHEAD;
-          }
-          // stat
-          m_total_data_size += req_size * BYTE;
-        }
-      } else if (req_size == 128) {
+      if (req_size == 128) {      // NORMAL CACHE
         static int cnt = 0;
         for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
         comp_bit_size = g_comp->compress(req_data, req_size);
@@ -488,7 +466,21 @@ void compressed_up_link::step_link_push(unsigned n_flit)
         }
         // stat
         m_total_data_size += req_size * BYTE;
+      } else if (req_size == 32) {  // SECTOR CACHE
+        static int cnt = 0;
+        for (int i = 0; i < req_size; i++) req_data[i] = mf->data[i];
+        comp_bit_size = g_comp->compress(req_data, req_size);
+        cnt += comp_bit_size;
+
+        if (cnt > PACKET_SIZE) {   // spread over two packets
+          cnt -= PACKET_SIZE;
+        } else {            // compacted packet --> TAG overhead
+          comp_bit_size += TAG_32_OVERHEAD;
+        }
+        // stat
+        m_total_data_size += req_size * BYTE;
       } else {
+        printf("req_size is %d\n", req_size);
         assert(0);
       }
       m_ready_compressed->push(mf, comp_bit_size);
