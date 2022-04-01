@@ -11,7 +11,7 @@
                                             // 2^(8+1), log2(32B) + additional 1b
 #define TAG_128_OVERHEAD (11)               // Tag overhead for 128B req_size to enable out-of-order link access
                                             // 2^(10+1), log2(128B) + additional 1b
-#define QUEUE_SIZE (4000)
+#define QUEUE_SIZE (65535)
 
 
 // -------------------------------------------------------------------------
@@ -81,6 +81,7 @@ void oneway_link::step_link_pop(unsigned n_flit)
 {
   // pop old entries
   for (unsigned i=0; i<n_flit; i++) {
+    if (queue->empty()) continue;
     mem_fetch *mf = queue->pop();
     if (mf!=NULL) {
 //      printf("ONEWAY_LINK MAIN_Q POP : %p %8u\n", mf, mf->get_request_uid());
@@ -114,6 +115,7 @@ void oneway_link::step_link_push(unsigned n_flit)
       for (unsigned i=m_cur_flit_cnt*FLIT_WIDTH; (i<m_packet_bit_size) && (n_sent_flit_cnt<n_flit); i+=FLIT_WIDTH) {
         bool is_first = (i==0);
         bool is_last = (i>=(m_packet_bit_size-FLIT_WIDTH));
+        if (queue->full()) continue;
         queue->push(is_first, is_last, mf);
         m_total_data_packet_size += FLIT_WIDTH;   // stat
 //        printf("ONEWAY_LINK MAIN_Q PUSH: %p %8u\n", mf, mf->get_request_uid());
@@ -139,6 +141,7 @@ void oneway_link::step_link_push(unsigned n_flit)
   }
 
   for (; n_sent_flit_cnt < n_flit; n_sent_flit_cnt++) {
+    if (queue->full()) continue;
     queue->push(false, false, NULL);
   }
 }
@@ -204,6 +207,7 @@ bool compressed_oneway_link::push(mem_fetch *mf,
     }
     bool is_first = (i==0);
     bool is_last = (i>=(packet_bit_size-FLIT_WIDTH));
+    if (queue->full()) continue;
     queue->push(is_first, is_last, mf);
     m_total_data_packet_size += FLIT_WIDTH;   // stat
 //    printf("  COMP_LINK MAIN_Q PUSH: %p %8u\n", mf, mf->get_request_uid());
@@ -259,6 +263,7 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
       if (is_complete) {
+        if (m_ready_compressed->empty()) continue;
         m_ready_compressed->pop();
       }
     } else {
@@ -295,6 +300,7 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
       if (is_complete) {
+        if (m_ready_compressed->empty()) continue;
         m_ready_compressed->pop();
       }
     } else {
@@ -303,6 +309,7 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
   }
 
   for (; n_sent_flit_cnt < n_flit; n_sent_flit_cnt++) {
+    if (queue->full()) continue;
     queue->push(false, false, NULL);
     m_leftover = 0;     // left-over space is discarded
   }
@@ -351,6 +358,7 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
           m_total_data_size += req_size * BYTE;
         } 
       }
+      if (m_ready_compressed->full()) continue;
       m_ready_compressed->push(mf, comp_bit_size);
       m_ready_long_list[src_id].pop();
     }
@@ -412,6 +420,7 @@ void compressed_up_link::step_link_push(unsigned n_flit)
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
       if (is_complete) {
+        if (m_ready_compressed->empty()) continue;
         m_ready_compressed->pop();
       }
     } else {
@@ -437,6 +446,7 @@ void compressed_up_link::step_link_push(unsigned n_flit)
   }
 
   for (; n_sent_flit_cnt < n_flit; n_sent_flit_cnt++) {
+    if (queue->full()) continue;
     queue->push(false, false, NULL);
     m_leftover = 0;
   }
@@ -483,6 +493,7 @@ void compressed_up_link::step_link_push(unsigned n_flit)
         printf("req_size is %d\n", req_size);
         assert(0);
       }
+      if (m_ready_compressed->full()) continue;
       m_ready_compressed->push(mf, comp_bit_size);
       m_ready_long_list[src_id].pop();
 //      printf("UPLINK COMPR_Q DATA: PUSH  %p %d\n", mf, mf->get_request_uid());

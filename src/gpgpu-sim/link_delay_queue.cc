@@ -9,18 +9,14 @@
 link_delay_queue::link_delay_queue(const char* nm,
     unsigned int size, unsigned int latency, 
     gpgpu_context *ctx)
-  : m_name(nm), m_size(size), m_latency(latency), m_ctx(ctx)
+  : m_name(nm), m_size(size), m_latency(latency), m_ctx(ctx),
+    m_wr_ptr(latency - 1), m_rd_ptr(-1), m_arr_size(size + latency)
 {
   assert(latency);
-
-  m_arr_size = size + latency;
 
   m_data_array = new mem_fetch*[m_arr_size];
   m_is_head_array = new bool[m_arr_size];
   m_is_tail_array = new bool[m_arr_size];
-
-  m_wr_ptr = latency;
-  m_rd_ptr = 0;
 
   for (unsigned i=0; i<latency; i++) {
     m_data_array[i] = NULL;
@@ -36,28 +32,55 @@ link_delay_queue::~link_delay_queue()
   delete [] m_is_tail_array;
 }
 
+bool link_delay_queue::full()
+{
+  if (m_rd_ptr == 0 && m_wr_ptr == m_arr_size - 1)
+    return true;
+  else if (m_rd_ptr == m_wr_ptr + 1)
+    return true;
+  else
+    return false;
+}
+
+bool link_delay_queue::empty()
+{
+  if (m_rd_ptr == -1)
+    return true;
+  else
+    return false;
+}
+
 void link_delay_queue::push(bool is_head, bool is_tail, mem_fetch* mf)
 {
+  assert (!full());
+  if (m_rd_ptr == -1) m_rd_ptr = 0;
+  m_wr_ptr = (m_wr_ptr + 1) % m_arr_size;
+
   m_data_array[m_wr_ptr] = mf;
   m_is_head_array[m_wr_ptr] = is_head;
   m_is_tail_array[m_wr_ptr] = is_tail;
-  m_wr_ptr = (m_wr_ptr+1) % m_arr_size;
-  assert ((m_wr_ptr % m_arr_size) != (m_rd_ptr % m_arr_size));
+//  assert ((m_wr_ptr % m_arr_size) != (m_rd_ptr % m_arr_size));
 }
 
 mem_fetch* link_delay_queue::pop()
 {
+  assert (!empty());
+  
   mem_fetch *result = NULL;
   if (m_is_tail_array[m_rd_ptr]) {
     result = m_data_array[m_rd_ptr];
     //printf("MDQ::pop  %p %d\n", result, m_rd_ptr);
   }
-  m_rd_ptr = (m_rd_ptr+1) % m_arr_size;
-  assert ((m_wr_ptr % m_arr_size) != (m_rd_ptr % m_arr_size));
+
+  if (m_rd_ptr == m_wr_ptr) {
+    m_rd_ptr = -1;
+    m_wr_ptr = -1;
+  } else {
+    m_rd_ptr = (m_rd_ptr + 1) % m_arr_size;
+  }
+//  assert ((m_wr_ptr % m_arr_size) != (m_rd_ptr % m_arr_size));
   return result;
 }
-
-
 
 
 void link_delay_queue::print() const
@@ -74,21 +97,21 @@ const char* link_delay_queue::get_name()
 compressed_link_delay_queue::compressed_link_delay_queue(const char* nm,
     unsigned int size, unsigned int latency,
     gpgpu_context *ctx)
-  : m_name(nm), m_size(size), m_latency(latency), m_ctx(ctx)
+  : link_delay_queue(nm, size, latency, ctx)
 {
   assert(latency);
 
-  m_arr_size = size + latency;
+//  m_arr_size = size + latency;
 
-  m_data_array = new mem_fetch*[m_arr_size];
+//  m_data_array = new mem_fetch*[m_arr_size];
   m_size_array = new unsigned[m_arr_size];
   m_time_array = new unsigned long long[m_arr_size];
 
-  m_wr_ptr = 0;
-  m_rd_ptr = 0;
+//  m_wr_ptr = 0;
+//  m_rd_ptr = 0;
 
   for (unsigned i=0; i<m_arr_size; i++) {
-    m_data_array[i] = NULL;
+//    m_data_array[i] = NULL;
     m_size_array[i] = 0;
     m_time_array[i] = 0ull;
   }
@@ -96,13 +119,17 @@ compressed_link_delay_queue::compressed_link_delay_queue(const char* nm,
 
 compressed_link_delay_queue::~compressed_link_delay_queue()
 {
-  delete [] m_data_array;
+//  delete [] m_data_array;
   delete [] m_size_array;
   delete [] m_time_array;
 }
 
 void compressed_link_delay_queue::push(mem_fetch* mf, unsigned size)
 {
+  assert (!full());
+  if (m_rd_ptr == -1) m_rd_ptr = 0;
+  m_wr_ptr = (m_wr_ptr + 1) % m_arr_size;
+
   //if (mf!=NULL) {
   //    printf("MDQ::push %p %d %d %d\n", mf, is_head, is_tail, m_wr_ptr);
   //}
@@ -110,7 +137,6 @@ void compressed_link_delay_queue::push(mem_fetch* mf, unsigned size)
   m_size_array[m_wr_ptr] = size;
   m_time_array[m_wr_ptr] = m_ctx->the_gpgpusim->g_the_gpu->gpu_sim_cycle
     + m_ctx->the_gpgpusim->g_the_gpu->gpu_tot_sim_cycle;
-  m_wr_ptr = (m_wr_ptr+1) % m_arr_size;
 }
 
 std::pair<mem_fetch *, unsigned> compressed_link_delay_queue::top()
@@ -131,8 +157,15 @@ std::pair<mem_fetch *, unsigned> compressed_link_delay_queue::top()
 
 void compressed_link_delay_queue::pop()
 {
+  assert (!empty());
+
   m_data_array[m_rd_ptr] = NULL;
-  m_rd_ptr = (m_rd_ptr+1) % m_arr_size;
+  if (m_rd_ptr == m_wr_ptr) {
+    m_rd_ptr = -1;
+    m_wr_ptr = -1;
+  } else {
+    m_rd_ptr = (m_rd_ptr + 1) % m_arr_size;
+  }
 }
 
 void compressed_link_delay_queue::print() const
