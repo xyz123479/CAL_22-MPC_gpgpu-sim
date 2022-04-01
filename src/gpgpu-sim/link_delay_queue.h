@@ -50,7 +50,7 @@ protected:
 };
 
 
-class compressed_link_delay_queue : public link_delay_queue {
+class compressed_link_delay_queue {
 public:
     compressed_link_delay_queue(const char* nm,
         unsigned int size, unsigned int latency,
@@ -68,20 +68,20 @@ public:
     const char* get_name();
 
 protected:
-//    const char* m_name;
-//
-//    unsigned int m_latency;
-//    unsigned int m_size;
-//    unsigned int m_arr_size;
+    const char* m_name;
 
-//    unsigned int m_wr_ptr;
-//    unsigned int m_rd_ptr;
+    unsigned int m_latency;
+    unsigned int m_size;
+    unsigned int m_arr_size;
 
-//    mem_fetch **m_data_array;
+    unsigned int m_wr_ptr;
+    unsigned int m_rd_ptr;
+
+    mem_fetch **m_data_array;
     unsigned *m_size_array;
     unsigned long long *m_time_array;
 
-//    class gpgpu_context *m_ctx;
+    class gpgpu_context *m_ctx;
 };
 
 #endif

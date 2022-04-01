@@ -263,7 +263,6 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
       if (is_complete) {
-        if (m_ready_compressed->empty()) continue;
         m_ready_compressed->pop();
       }
     } else {
@@ -300,7 +299,6 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
       if (is_complete) {
-        if (m_ready_compressed->empty()) continue;
         m_ready_compressed->pop();
       }
     } else {
@@ -358,7 +356,6 @@ void compressed_dn_link::step_link_push(unsigned n_flit)
           m_total_data_size += req_size * BYTE;
         } 
       }
-      if (m_ready_compressed->full()) continue;
       m_ready_compressed->push(mf, comp_bit_size);
       m_ready_long_list[src_id].pop();
     }
@@ -420,7 +417,6 @@ void compressed_up_link::step_link_push(unsigned n_flit)
 
       bool is_complete = push(it.first, m_packet_bit_size, n_sent_flit_cnt, n_flit);
       if (is_complete) {
-        if (m_ready_compressed->empty()) continue;
         m_ready_compressed->pop();
       }
     } else {
@@ -493,7 +489,6 @@ void compressed_up_link::step_link_push(unsigned n_flit)
         printf("req_size is %d\n", req_size);
         assert(0);
       }
-      if (m_ready_compressed->full()) continue;
       m_ready_compressed->push(mf, comp_bit_size);
       m_ready_long_list[src_id].pop();
 //      printf("UPLINK COMPR_Q DATA: PUSH  %p %d\n", mf, mf->get_request_uid());
