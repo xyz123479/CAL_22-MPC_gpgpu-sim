@@ -16,13 +16,21 @@
 #include "MPCmodules/XORModule.h"
 #include "MPCmodules/CompStruct.h"
 
+#define MIN_GRAN 32
+
 compressor *g_comp;
 
 // MPC ---------------------------------------------------------------------
 unsigned MPCompressor::compress(uint8_t* data, int req_size)
 {
+  assert (req_size % MIN_GRAN == 0);
+
   std::vector<uint8_t> dataLine(data, data + req_size);
-  unsigned compressed_size = (this->*compressLine)(dataLine);
+  unsigned compressed_size = 0;
+  for (int i = 0; i < req_size / MIN_GRAN; i++) {
+    std::vector<uint8_t> dataBlock(dataLine.begin()+i*MIN_GRAN, dataLine.begin()+(i+1)*MIN_GRAN);
+    compressed_size += (this->*compressLine)(dataBlock);
+  }
 
   // stat
   m_uncomp_size += req_size * BYTE;
