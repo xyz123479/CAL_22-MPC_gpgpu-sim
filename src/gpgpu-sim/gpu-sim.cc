@@ -231,7 +231,7 @@ void memory_config::reg_options(class OptionParser *opp) {
                         "Link latency", "6");
   // JIN: comp params
   option_parser_register(opp, "-compress_link", OPT_INT32, &compress_link,
-                         "Compress LLC <-> MEM Link, 0: No comp, 1: C-Pack, 2: MPC", "0");
+                         "Compress LLC <-> MEM Link, 0: No comp, 1: C-Pack, 2: MPC, 3: BDI, 4: FPC, 5: BPC, 6: SC2", "0");
   option_parser_register(opp, "-compression_latency", OPT_INT32, &comp_latency,
                          "Copmression latency", "3");
   option_parser_register(opp, "-decompression_latency", OPT_INT32, &decomp_latency,
@@ -906,7 +906,7 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
           m_memory_config, ctx);
       printf("Memory link\n");
     }
-    else if (m_memory_config->compress_link == 1 || m_memory_config->compress_link == 2) {
+    else if (m_memory_config->compress_link >= 1 && m_memory_config->compress_link <= 6) {
       m_memory_link[i] = new compressed_memory_link(link_name,
           link_latency, comp_latency, decomp_latency,
           m_n_mem_per_link,
