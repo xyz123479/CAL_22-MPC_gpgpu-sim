@@ -964,6 +964,22 @@ gpgpu_sim::gpgpu_sim(const gpgpu_sim_config &config, gpgpu_context *ctx)
     g_comp = new MPCompressor();
     printf("MPC is instantiated\n");
   }
+  else if (m_memory_config->compress_link == 3) {
+    g_comp = new BDICompressor();
+    printf("BDI is instantiated\n");
+  }
+  else if (m_memory_config->compress_link == 4) {
+    g_comp = new FPCompressor();
+    printf("FPC is instantiated\n");
+  }
+  else if (m_memory_config->compress_link == 5) {
+    g_comp = new BPCompressor();
+    printf("BPC is instantiated\n");
+  }
+  else if (m_memory_config->compress_link == 6) {
+    g_comp = new SC2Compressor();
+    printf("SC2 is instantiated\n");
+  }
   else {
     printf("ERROR: Compressor option is not specified\n");
     exit(1);
