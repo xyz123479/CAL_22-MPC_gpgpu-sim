@@ -582,6 +582,11 @@ unsigned BDICompressor::compress(uint8_t *data, int req_size)
 
   // compressedSize + encodingBits
   int compressedSize = (bestCSize + 4);
+
+  // stat
+  m_uncomp_size += req_size * BYTE;
+  m_comp_size += compressedSize;
+
   return compressedSize;
 }
 
@@ -800,6 +805,10 @@ unsigned FPCompressor::compress(uint8_t *data, int req_size)
   }
 
   unsigned compressedSize = currCSize;
+
+  // stat
+  m_uncomp_size += req_size * BYTE;
+  m_comp_size += compressedSize;
   return compressedSize;
 }
 
@@ -903,6 +912,10 @@ unsigned BPCompressor::compress(uint8_t *data, int req_size)
   unsigned compressedSize = encodeFirst(dataLine[0]);
   // the rest of the data
   compressedSize += encodeDeltas(DBP, DBX);
+
+  // stat
+  m_uncomp_size += req_size * BYTE;
+  m_comp_size += compressedSize;
 
   return compressedSize;
 }
@@ -1335,6 +1348,10 @@ unsigned SC2Compressor::compress(uint8_t *data, int req_size)
       compressedSize += encodedSymbolSize;
     }
   }
+
+  // stat
+  m_uncomp_size += req_size * BYTE;
+  m_comp_size += compressedSize;
 
   return compressedSize;
 }
