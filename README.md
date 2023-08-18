@@ -1,3 +1,19 @@
+# CAL_22 Multi-Prediction Compression_gpgpu-sim
+
+# Author
+
+**Hoyong Jin** 
+- Github URL: https://github.com/jin8495
+
+Paper title: [CAL'22] Multi-Prediction Compression: An Efficient and Scalable Memory Compression Framework for GP-GPU
+
+Paper URL: https://ieeexplore.ieee.org/abstract/document/9780608
+
+# Overview
+![An overview of MPC](https://github.com/scalable-arch/CAL_22-MPC_parameter_extraction/blob/main/MPC.PNG)
+
+
+# Original GPGPU-Sim README
 Welcome to GPGPU-Sim, a cycle-level simulator modeling contemporary graphics
 processing units (GPUs) running GPU computing workloads written in CUDA or
 OpenCL. Also included in GPGPU-Sim is a performance visualization tool called
